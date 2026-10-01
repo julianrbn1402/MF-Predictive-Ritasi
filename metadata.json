@@ -1,0 +1,6 @@
+{
+  "name": "MF Predictive Ritasi — Jobsite ARIA",
+  "description": "Sistem pemantauan Match Factor (MF) dan Predictive Ritasi antara Loader (EX) dan Hauler (HD/DT) berbasis data VHMS Hourly untuk operasi tambang terbuka Jobsite ARIA.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
