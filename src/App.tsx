@@ -295,133 +295,160 @@ export default function App() {
 
       {/* Toast */}
       {toastMessage && (
-        <div className="fixed bottom-5 right-5 z-50 bg-amber-500 text-slate-950 px-4 py-2.5 rounded-lg shadow-lg flex items-center gap-2 text-xs font-semibold">
+        <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-5 z-50 bg-amber-500 text-slate-950 px-4 py-2.5 rounded-lg shadow-lg flex items-center justify-center sm:justify-start gap-2 text-xs font-semibold">
           <CheckCircle2 className="w-4 h-4 shrink-0" />
-          <span>{toastMessage}</span>
+          <span className="text-center sm:text-left">{toastMessage}</span>
         </div>
       )}
 
-      {/* TOP BAR (3 Zones: Brand | Nav | Actions) */}
-      <header className="sticky top-0 z-30 flex items-center justify-between px-4 lg:px-6 py-2.5 bg-slate-900 border-b border-slate-800">
-        <a
-          href="#top"
-          onClick={(e) => {
-            e.preventDefault();
-            setActiveTab('output');
-          }}
-          className="text-base font-bold tracking-tight text-white font-display whitespace-nowrap"
-        >
-          MF Predictive Ritasi
-        </a>
-
-        <nav className="flex items-center gap-5 text-xs font-medium text-slate-400">
-          <button
-            type="button"
-            onClick={() => setActiveTab('output')}
-            className={`py-1 transition-colors whitespace-nowrap cursor-pointer ${
-              activeTab === 'output'
-                ? 'text-amber-400 font-semibold underline underline-offset-8 decoration-2'
-                : 'hover:text-white'
-            }`}
-          >
-            Tabel Output MF
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('vhms')}
-            className={`py-1 transition-colors whitespace-nowrap cursor-pointer ${
-              activeTab === 'vhms'
-                ? 'text-amber-400 font-semibold underline underline-offset-8 decoration-2'
-                : 'hover:text-white'
-            }`}
-          >
-            Data VHMS ({vhmsRows.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('settings')}
-            className={`py-1 transition-colors whitespace-nowrap cursor-pointer ${
-              activeTab === 'settings'
-                ? 'text-amber-400 font-semibold underline underline-offset-8 decoration-2'
-                : 'hover:text-white'
-            }`}
-          >
-            Pengaturan Loader
-          </button>
-        </nav>
-
-        <div className="flex items-center gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.xls"
-            onChange={handleFileInputChange}
-            className="hidden"
-          />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="px-3 py-1.5 text-xs font-semibold bg-amber-500 text-slate-950 hover:bg-amber-400 rounded-md transition-colors whitespace-nowrap flex items-center gap-1.5 cursor-pointer"
-          >
-            <Upload className="w-3.5 h-3.5" />
-            <span>Upload VHMS</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleExportPng}
-            className="px-3 py-1.5 text-xs font-semibold bg-slate-800 text-slate-100 hover:bg-slate-700 rounded-md transition-colors whitespace-nowrap flex items-center gap-1.5 border border-slate-700 cursor-pointer"
-          >
-            <Download className="w-3.5 h-3.5 text-amber-400" />
-            <span>Export PNG</span>
-          </button>
-        </div>
-      </header>
-
-      {/* Sub-bar Semboyan, Pilihan Pit & Info File */}
-      <div className="bg-slate-900/60 border-b border-slate-800 px-4 lg:px-6 py-2.5">
-        <div className="max-w-[1140px] mx-auto flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2 pr-2 border-r border-slate-800">
-              <span className="text-xs font-bold text-slate-200">
+      {/* TOP BAR (Responsif & Simetris untuk Mobile maupun Desktop) */}
+      <header className="sticky top-0 z-30 bg-slate-900 border-b border-slate-800 px-3 sm:px-6 py-2.5">
+        <div className="max-w-[1140px] mx-auto flex flex-col gap-2.5 md:flex-row md:items-center md:justify-between">
+          {/* Baris Atas Mobile / Zona Kiri & Kanan */}
+          <div className="flex items-center justify-between gap-2">
+            <a
+              href="#top"
+              onClick={(e) => {
+                e.preventDefault();
+                setActiveTab('output');
+              }}
+              className="flex flex-col sm:flex-row sm:items-baseline sm:gap-2 min-w-0"
+            >
+              <span className="text-sm sm:text-base font-bold tracking-tight text-white font-display truncate">
                 MF Predictive Ritasi
               </span>
-              <span className="text-slate-600">·</span>
-              <span className="text-xs font-semibold italic text-amber-400">
+              <span className="text-[10px] sm:text-xs font-semibold italic text-amber-400 truncate">
                 part of Autonomia!
               </span>
-            </div>
+            </a>
 
-            <div className="flex items-center gap-1.5">
-              {detectedPits.map((pitName) => (
-                <button
-                  key={pitName}
-                  type="button"
-                  onClick={() => {
-                    setActivePit(pitName);
-                    setActiveTab('output');
-                  }}
-                  className={`px-3 py-1 text-xs font-mono font-bold rounded-md transition-colors cursor-pointer ${
-                    currentPit === pitName && activeTab === 'output'
-                      ? 'bg-amber-500 text-slate-950'
-                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                  }`}
-                >
-                  {pitName}
-                </button>
-              ))}
+            {/* Tombol Aksi Mobile (Sejajar & Simetris di Kanan Atas) */}
+            <div className="flex md:hidden items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="px-2.5 py-1.5 text-[11px] font-semibold bg-amber-500 text-slate-950 hover:bg-amber-400 rounded-md transition-colors whitespace-nowrap flex items-center justify-center gap-1 cursor-pointer"
+              >
+                <Upload className="w-3.5 h-3.5 shrink-0" />
+                <span>Upload</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleExportPng}
+                className="px-2.5 py-1.5 text-[11px] font-semibold bg-slate-800 text-slate-100 hover:bg-slate-700 rounded-md transition-colors whitespace-nowrap flex items-center justify-center gap-1 border border-slate-700 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span>PNG</span>
+              </button>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 font-mono">
-            <span>
+          {/* Navigasi Tab: Grid 3 Kolom Simetris di Mobile, Inline di Desktop */}
+          <nav className="grid grid-cols-3 gap-1 bg-slate-950/70 p-1 rounded-lg border border-slate-800 md:bg-transparent md:p-0 md:border-0 md:flex md:items-center md:gap-6 text-xs font-medium text-slate-400">
+            <button
+              type="button"
+              onClick={() => setActiveTab('output')}
+              className={`py-1.5 px-2 rounded-md md:rounded-none md:py-1 text-center transition-colors whitespace-nowrap cursor-pointer text-[11px] sm:text-xs ${
+                activeTab === 'output'
+                  ? 'bg-amber-500 text-slate-950 font-bold md:bg-transparent md:text-amber-400 md:font-semibold md:underline md:underline-offset-8 md:decoration-2'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              Tabel Output MF
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('vhms')}
+              className={`py-1.5 px-2 rounded-md md:rounded-none md:py-1 text-center transition-colors whitespace-nowrap cursor-pointer text-[11px] sm:text-xs ${
+                activeTab === 'vhms'
+                  ? 'bg-amber-500 text-slate-950 font-bold md:bg-transparent md:text-amber-400 md:font-semibold md:underline md:underline-offset-8 md:decoration-2'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              Data VHMS ({vhmsRows.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('settings')}
+              className={`py-1.5 px-2 rounded-md md:rounded-none md:py-1 text-center transition-colors whitespace-nowrap cursor-pointer text-[11px] sm:text-xs ${
+                activeTab === 'settings'
+                  ? 'bg-amber-500 text-slate-950 font-bold md:bg-transparent md:text-amber-400 md:font-semibold md:underline md:underline-offset-8 md:decoration-2'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              Pengaturan
+            </button>
+          </nav>
+
+          {/* Tombol Aksi Desktop */}
+          <div className="hidden md:flex items-center gap-2 shrink-0">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={handleFileInputChange}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="px-3 py-1.5 text-xs font-semibold bg-amber-500 text-slate-950 hover:bg-amber-400 rounded-md transition-colors whitespace-nowrap flex items-center gap-1.5 cursor-pointer"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>Upload VHMS</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleExportPng}
+              className="px-3 py-1.5 text-xs font-semibold bg-slate-800 text-slate-100 hover:bg-slate-700 rounded-md transition-colors whitespace-nowrap flex items-center gap-1.5 border border-slate-700 cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5 text-amber-400" />
+              <span>Export PNG</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Sub-bar Pilihan Pit, Info File & Tombol Reset (Simetris di Mobile & Desktop) */}
+      <div className="bg-slate-900/60 border-b border-slate-800 px-3 sm:px-6 py-2.5">
+        <div className="max-w-[1140px] mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+          {/* Pilihan Pit: Grid Simetris Rata Lebar di Mobile */}
+          <div
+            className="grid gap-1.5 w-full sm:w-auto sm:flex sm:items-center"
+            style={{
+              gridTemplateColumns: `repeat(${Math.min(4, Math.max(1, detectedPits.length))}, minmax(0, 1fr))`,
+            }}
+          >
+            {detectedPits.map((pitName) => (
+              <button
+                key={pitName}
+                type="button"
+                onClick={() => {
+                  setActivePit(pitName);
+                  setActiveTab('output');
+                }}
+                className={`px-3 py-1.5 sm:py-1 text-xs font-mono font-bold rounded-md text-center transition-colors cursor-pointer ${
+                  currentPit === pitName && activeTab === 'output'
+                    ? 'bg-amber-500 text-slate-950 shadow-xs'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                {pitName}
+              </button>
+            ))}
+          </div>
+
+          {/* Info File & Tombol Reset */}
+          <div className="flex items-center justify-between sm:justify-end gap-2 text-[11px] sm:text-xs text-slate-400 font-mono bg-slate-900/80 sm:bg-transparent px-2.5 py-1.5 sm:p-0 rounded-md border border-slate-800/80 sm:border-0">
+            <span className="truncate">
               {vhmsMetadata.fileName} · {vhmsMetadata.hoursLabel} · Data per{' '}
               {vhmsMetadata.latestUpdatedDisplay}
             </span>
             <button
               type="button"
               onClick={handleResetAllData}
-              className="px-3 py-1 text-xs font-sans font-medium bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 rounded-md border border-rose-500/30 inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-2.5 py-1 text-[11px] sm:text-xs font-sans font-semibold bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 rounded-md border border-rose-500/30 inline-flex items-center gap-1 transition-colors cursor-pointer shrink-0"
             >
               <RotateCcw className="w-3 h-3" />
               Reset
@@ -431,7 +458,7 @@ export default function App() {
       </div>
 
       {/* MAIN CONTENT */}
-      <main className="flex-1 max-w-[1140px] w-full mx-auto px-3 lg:px-6 py-4">
+      <main className="flex-1 max-w-[1140px] w-full mx-auto px-2.5 sm:px-6 py-3 sm:py-4">
         {activeTab === 'output' && (
           <SpreadsheetOutputView
             pit={currentPit}
