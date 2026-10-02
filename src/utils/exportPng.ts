@@ -4,7 +4,7 @@ import {
   VhmsMetadata,
   VhmsRow,
 } from '../types';
-import { formatIdNumber, formatMeters } from './formulas';
+import { formatHdCount, formatIdNumber, formatMeters } from './formulas';
 import {
   SYMMETRIC_COL_WIDTHS,
   TOTAL_TABLE_WIDTH,
@@ -299,7 +299,7 @@ export async function exportOutputTablesToPng({
       curY,
       t1RowH,
       TABLE_PALETTE.dataWhite,
-      r.nHdActual > 0 ? String(r.nHdActual) : '-',
+      formatHdCount(r.nHdActual),
       fontMonoBold
     );
     drawGridCell(
@@ -434,7 +434,7 @@ export async function exportOutputTablesToPng({
       curY,
       t2RowH,
       TABLE_PALETTE.dataWhite,
-      r.nHdActual > 0 ? String(r.nHdActual) : '-',
+      formatHdCount(r.nHdActual),
       fontMonoBold
     );
     drawGridCell(

@@ -253,6 +253,8 @@ export function calculateAllLoaders(
     const dtValidations: AssignedDtValidation[] = [];
     const foundVhmsRows: VhmsRow[] = [];
 
+    let effectiveHdCount = 0;
+
     for (const unit of assignedUnits) {
       const vhmsRow = vhmsByUnit.get(unit.toUpperCase()) || null;
       const allLoadersUsing = dtUsageByLoaders.get(unit) || [];
@@ -265,6 +267,9 @@ export function calculateAllLoaders(
           : null;
       const smallSample =
         vhmsRow !== null && vhmsRow.rit !== null && vhmsRow.rit < 3;
+
+      // Jika nomor unit yang sama ada di >= 2 PC berbeda, dihitung 0,5 HD; jika hanya di 1 PC, dihitung 1 HD
+      effectiveHdCount += duplicateLoaders.length > 0 ? 0.5 : 1;
 
       dtValidations.push({
         unit,
@@ -280,7 +285,7 @@ export function calculateAllLoaders(
       }
     }
 
-    const nHdInputCount = assignedUnits.length;
+    const nHdInputCount = effectiveHdCount;
     const nHdActual =
       loader.overrideNHdActual !== null &&
       loader.overrideNHdActual !== undefined &&
@@ -519,3 +524,20 @@ export function formatMinutes(value: number | null | undefined, decimals: number
 export function formatMeters(value: number | null | undefined): string {
   return formatIdNumber(value, 0, '-');
 }
+
+/**
+ * Format jumlah HD (n Hauler Actual / Jumlah HD):
+ * Bilangan bulat ditampilkan tanpa desimal (misal 4 -> "4"),
+ * bilangan pecahan ditampilkan dengan koma desimal (misal 3.5 -> "3,5").
+ */
+export function formatHdCount(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value) || value <= 0) {
+    return '-';
+  }
+  const isInteger = Math.abs(value - Math.round(value)) < 1e-9;
+  return new Intl.NumberFormat('id-ID', {
+    minimumFractionDigits: isInteger ? 0 : 1,
+    maximumFractionDigits: 1,
+  }).format(value);
+}
+

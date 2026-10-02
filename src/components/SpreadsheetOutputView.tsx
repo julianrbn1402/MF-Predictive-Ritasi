@@ -14,6 +14,7 @@ import {
   VhmsRow,
 } from '../types';
 import {
+  formatHdCount,
   formatIdNumber,
   formatMeters,
   normalizeDtInputList,
@@ -462,7 +463,7 @@ export const SpreadsheetOutputView: React.FC<SpreadsheetOutputViewProps> = ({
                       }}
                       className="border px-1.5 py-1.5"
                     >
-                      {r.nHdActual > 0 ? r.nHdActual : '-'}
+                      {formatHdCount(r.nHdActual)}
                     </td>
                     <td
                       style={{
@@ -649,7 +650,7 @@ export const SpreadsheetOutputView: React.FC<SpreadsheetOutputViewProps> = ({
                       }}
                       className="border px-2 py-1.5"
                     >
-                      {r.nHdActual > 0 ? r.nHdActual : '-'}
+                      {formatHdCount(r.nHdActual)}
                     </td>
                     <td
                       style={{
