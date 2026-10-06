@@ -5,6 +5,7 @@ import {
   Download,
   RotateCcw,
   CheckCircle2,
+  ExternalLink,
 } from 'lucide-react';
 import {
   ColumnMapping,
@@ -306,21 +307,27 @@ export default function App() {
         <div className="max-w-[1140px] mx-auto flex flex-col gap-2.5 md:flex-row md:items-center md:justify-between">
           {/* Baris Atas Mobile / Zona Kiri & Kanan */}
           <div className="flex items-center justify-between gap-2">
-            <a
-              href="#top"
-              onClick={(e) => {
-                e.preventDefault();
-                setActiveTab('output');
-              }}
-              className="flex flex-col sm:flex-row sm:items-baseline sm:gap-2 min-w-0"
-            >
-              <span className="text-sm sm:text-base font-bold tracking-tight text-white font-display truncate">
+            <div className="flex flex-col sm:flex-row sm:items-baseline sm:gap-2 min-w-0">
+              <a
+                href="#top"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setActiveTab('output');
+                }}
+                className="text-sm sm:text-base font-bold tracking-tight text-white font-display truncate hover:text-slate-200"
+              >
                 MF Predictive Ritasi
-              </span>
-              <span className="text-[10px] sm:text-xs font-semibold italic text-amber-400 truncate">
+              </a>
+              <a
+                href="https://operational-excellence-aria.vercel.app/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] sm:text-xs font-semibold italic text-amber-400 hover:text-amber-300 truncate inline-flex items-center gap-0.5"
+                title="Buka portal Autonomia! di tab baru"
+              >
                 part of Autonomia!
-              </span>
-            </a>
+              </a>
+            </div>
 
             {/* Tombol Aksi Mobile (Sejajar & Simetris di Kanan Atas) */}
             <div className="flex md:hidden items-center gap-1.5 shrink-0">
@@ -343,12 +350,12 @@ export default function App() {
             </div>
           </div>
 
-          {/* Navigasi Tab: Grid 3 Kolom Simetris di Mobile, Inline di Desktop */}
-          <nav className="grid grid-cols-3 gap-1 bg-slate-950/70 p-1 rounded-lg border border-slate-800 md:bg-transparent md:p-0 md:border-0 md:flex md:items-center md:gap-6 text-xs font-medium text-slate-400">
+          {/* Navigasi Tab: Grid 4 Kolom Simetris di Mobile, Inline di Desktop */}
+          <nav className="grid grid-cols-4 gap-1 bg-slate-950/70 p-1 rounded-lg border border-slate-800 md:bg-transparent md:p-0 md:border-0 md:flex md:items-center md:gap-5 text-xs font-medium text-slate-400">
             <button
               type="button"
               onClick={() => setActiveTab('output')}
-              className={`py-1.5 px-2 rounded-md md:rounded-none md:py-1 text-center transition-colors whitespace-nowrap cursor-pointer text-[11px] sm:text-xs ${
+              className={`py-1.5 px-1 sm:px-2 rounded-md md:rounded-none md:py-1 text-center transition-colors whitespace-nowrap cursor-pointer text-[10px] sm:text-xs ${
                 activeTab === 'output'
                   ? 'bg-amber-500 text-slate-950 font-bold md:bg-transparent md:text-amber-400 md:font-semibold md:underline md:underline-offset-8 md:decoration-2'
                   : 'text-slate-300 hover:text-white'
@@ -359,7 +366,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => setActiveTab('vhms')}
-              className={`py-1.5 px-2 rounded-md md:rounded-none md:py-1 text-center transition-colors whitespace-nowrap cursor-pointer text-[11px] sm:text-xs ${
+              className={`py-1.5 px-1 sm:px-2 rounded-md md:rounded-none md:py-1 text-center transition-colors whitespace-nowrap cursor-pointer text-[10px] sm:text-xs ${
                 activeTab === 'vhms'
                   ? 'bg-amber-500 text-slate-950 font-bold md:bg-transparent md:text-amber-400 md:font-semibold md:underline md:underline-offset-8 md:decoration-2'
                   : 'text-slate-300 hover:text-white'
@@ -370,7 +377,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => setActiveTab('settings')}
-              className={`py-1.5 px-2 rounded-md md:rounded-none md:py-1 text-center transition-colors whitespace-nowrap cursor-pointer text-[11px] sm:text-xs ${
+              className={`py-1.5 px-1 sm:px-2 rounded-md md:rounded-none md:py-1 text-center transition-colors whitespace-nowrap cursor-pointer text-[10px] sm:text-xs ${
                 activeTab === 'settings'
                   ? 'bg-amber-500 text-slate-950 font-bold md:bg-transparent md:text-amber-400 md:font-semibold md:underline md:underline-offset-8 md:decoration-2'
                   : 'text-slate-300 hover:text-white'
@@ -378,6 +385,16 @@ export default function App() {
             >
               Pengaturan
             </button>
+            <a
+              href="https://operational-excellence-aria.vercel.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="py-1.5 px-1 sm:px-2 rounded-md md:rounded-none md:py-1 text-center transition-colors whitespace-nowrap cursor-pointer text-[10px] sm:text-xs text-amber-400 hover:text-amber-300 font-bold flex items-center justify-center gap-1 hover:bg-slate-800 md:hover:bg-transparent"
+              title="Buka Autonomia! di tab baru"
+            >
+              <span>Autonomia!</span>
+              <ExternalLink className="w-3 h-3 shrink-0" />
+            </a>
           </nav>
 
           {/* Tombol Aksi Desktop */}
