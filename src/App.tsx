@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import * as XLSX from 'xlsx';
 import {
   Upload,
@@ -30,6 +30,13 @@ import { exportOutputTablesToPng } from './utils/exportPng';
 import { SpreadsheetOutputView } from './components/SpreadsheetOutputView';
 import { VhmsRawTab } from './components/VhmsRawTab';
 import { SettingsTab } from './components/SettingsTab';
+import {
+  fetchOperatorsFromGoogleSheets,
+  parseLocalMonitoringFile,
+  parseOperationalDate,
+  OperatorRecord,
+  ParsedOperationalDate,
+} from './utils/operatorService';
 
 const STORAGE_KEYS = {
   PARAMS: 'mf_aria_params_v2',
@@ -175,6 +182,114 @@ export default function App() {
     return map;
   }, [loaders]);
 
+  // Tanggal Operasional (diambil otomatis dari nama file Excel VHMS atau header teks)
+  const operationalDate = useMemo(() => {
+    return parseOperationalDate(
+      vhmsMetadata.fileName,
+      vhmsMetadata.rawDateText || vhmsMetadata.parsedDateDisplay
+    );
+  }, [vhmsMetadata.fileName, vhmsMetadata.rawDateText, vhmsMetadata.parsedDateDisplay]);
+
+  const [selectedDateOverride, setSelectedDateOverride] = useState<ParsedOperationalDate | null>(null);
+  const activeOperationalDate = selectedDateOverride || operationalDate;
+
+  // State Data Operator per PIT & Tanggal
+  const [operatorRecords, setOperatorRecords] = useState<OperatorRecord[]>([]);
+  const [isOperatorsLoading, setIsOperatorsLoading] = useState<boolean>(false);
+  const [operatorStatus, setOperatorStatus] = useState<{
+    success: boolean;
+    message?: string;
+    source: 'google_sheets' | 'local_file';
+    dateKey: string;
+  }>({
+    success: true,
+    message: 'Memuat data operator...',
+    source: 'google_sheets',
+    dateKey: '-',
+  });
+
+  // Fungsi memuat data operator dari Google Sheets sesuai PIT aktif dan Tanggal
+  const loadOperators = useCallback(
+    async (
+      pitToLoad: string,
+      dateToLoad: ParsedOperationalDate | null,
+      force = false
+    ) => {
+      if (!dateToLoad) {
+        setOperatorRecords([]);
+        setOperatorStatus({
+          success: false,
+          message: 'Tanggal operasional tidak terdeteksi dari nama file VHMS.',
+          source: 'google_sheets',
+          dateKey: '-',
+        });
+        return;
+      }
+
+      setIsOperatorsLoading(true);
+      // Bersihkan data operator PIT sebelumnya seketika agar tidak tertinggal atau tercampur
+      setOperatorRecords([]);
+
+      try {
+        const res = await fetchOperatorsFromGoogleSheets(pitToLoad, dateToLoad, force);
+        setOperatorRecords(res.records);
+        setOperatorStatus({
+          success: res.success,
+          message: res.message,
+          source: res.source,
+          dateKey: res.dateKey,
+        });
+      } catch (err) {
+        setOperatorRecords([]);
+        setOperatorStatus({
+          success: false,
+          message: `Gagal mengakses Google Sheets ${pitToLoad}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+          source: 'google_sheets',
+          dateKey: dateToLoad.display,
+        });
+      } finally {
+        setIsOperatorsLoading(false);
+      }
+    },
+    []
+  );
+
+  // Otomatis sinkronkan operator setiap kali PIT aktif atau Tanggal operasional berubah
+  useEffect(() => {
+    loadOperators(currentPit, activeOperationalDate);
+  }, [currentPit, activeOperationalDate, loadOperators]);
+
+  const handleUploadLocalMonitoring = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const { records, sheetName } = parseLocalMonitoringFile(
+          workbook,
+          activeOperationalDate
+        );
+        if (records.length === 0) {
+          showToast(`File monitoring "${file.name}" tidak memiliki data operator.`);
+          return;
+        }
+        setOperatorRecords(records);
+        setOperatorStatus({
+          success: true,
+          message: `Berhasil memuat ${records.length} data operator dari file ${file.name} (Sheet: ${sheetName})`,
+          source: 'local_file',
+          dateKey: activeOperationalDate?.display || '-',
+        });
+        showToast(`Memuat ${records.length} operator dari file lokal "${file.name}".`);
+      } catch {
+        showToast('Gagal membaca file monitoring lokal.');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
   const processUploadedFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -186,6 +301,8 @@ export default function App() {
         const parsed = parseVhmsWorkbook(workbook, file.name);
         setVhmsMetadata(parsed.metadata);
         setVhmsRows(parsed.rows);
+        // Reset tanggal override agar otomatis mengikuti nama file baru
+        setSelectedDateOverride(null);
         setActiveTab('output');
         showToast(
           `File "${file.name}" berhasil dimuat (${parsed.rows.length} DT, ${parsed.metadata.hoursLabel}).`
@@ -242,6 +359,8 @@ export default function App() {
     setVhmsMetadata(EMPTY_VHMS_METADATA);
     setVhmsRows([]);
     setAssignments({});
+    setSelectedDateOverride(null);
+    setOperatorRecords([]);
     setLoaders((prev) =>
       prev.map((l) => ({
         ...l,
@@ -260,6 +379,7 @@ export default function App() {
       params,
       assignments,
       metadata: vhmsMetadata,
+      operatorRecords,
     });
     showToast(`Tabel Output MF (${currentPit}) berhasil diunduh sebagai PNG.`);
   };
@@ -496,6 +616,18 @@ export default function App() {
                 prev.map((l) => (l.id === loaderId ? { ...l, ...patch } : l))
               );
             }}
+            operationalDate={activeOperationalDate}
+            onDateChange={(newDate) => {
+              setSelectedDateOverride(newDate);
+              showToast(`Sheet tanggal diganti ke ${newDate.display}.`);
+            }}
+            operatorRecords={operatorRecords}
+            isOperatorsLoading={isOperatorsLoading}
+            operatorStatus={operatorStatus}
+            onRefreshOperators={() =>
+              loadOperators(currentPit, activeOperationalDate, true)
+            }
+            onUploadLocalMonitoring={handleUploadLocalMonitoring}
           />
         )}
 

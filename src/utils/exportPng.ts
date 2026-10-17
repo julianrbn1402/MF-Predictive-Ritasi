@@ -6,6 +6,10 @@ import {
 } from '../types';
 import { formatHdCount, formatIdNumber, formatMeters } from './formulas';
 import {
+  matchOperatorName,
+  OperatorRecord,
+} from './operatorService';
+import {
   SYMMETRIC_COL_WIDTHS,
   TOTAL_TABLE_WIDTH,
   TABLE_PALETTE,
@@ -26,6 +30,7 @@ interface ExportPngOptions {
   params: GlobalParams;
   assignments: Record<string, string[]>;
   metadata: VhmsMetadata;
+  operatorRecords?: OperatorRecord[];
 }
 
 export async function exportOutputTablesToPng({
@@ -35,6 +40,7 @@ export async function exportOutputTablesToPng({
   params,
   assignments,
   metadata,
+  operatorRecords,
 }: ExportPngOptions): Promise<void> {
   if (typeof document !== 'undefined' && 'fonts' in document) {
     try {
@@ -529,7 +535,7 @@ export async function exportOutputTablesToPng({
 
   drawGridCell(0, 2, curY, t3HeaderH, TABLE_PALETTE.headerMain, 'PC', fontHeader);
   drawGridCell(2, 1, curY, t3HeaderH, TABLE_PALETTE.headerMain, 'UNIT', fontHeader);
-  drawGridCell(3, 1, curY, t3HeaderH, TABLE_PALETTE.headerMain, 'UNIT', fontHeader);
+  drawGridCell(3, 1, curY, t3HeaderH, TABLE_PALETTE.headerMain, 'Nama Operator', fontHeader);
   drawGridCell(4, 1, curY, t3HeaderH, TABLE_PALETTE.headerMain, 'Jarak', fontHeader);
   drawGridCell(5, 2, curY, t3HeaderH1, TABLE_PALETTE.headerMain, 'Cycle Time', fontHeader);
   drawGridCell(
@@ -598,15 +604,27 @@ export async function exportOutputTablesToPng({
         fontMonoBold
       );
 
-      // Kolom UNIT DT#### Putih (Col 3)
+      // Kolom NAMA OPERATOR (Col 3)
+      const opMatch = matchOperatorName(
+        numericId,
+        r.loader.name,
+        operatorRecords || []
+      );
+      const opDisplayName =
+        opMatch.status === 'FOUND'
+          ? opMatch.name
+          : opMatch.status === 'AMBIGUOUS'
+          ? opMatch.name
+          : '—';
+
       drawGridCell(
         3,
         1,
         curY,
         t3DtRowH,
         TABLE_PALETTE.dataWhite,
-        normalizedUnit || '-',
-        fontMonoReg
+        opDisplayName,
+        '700 11px "Plus Jakarta Sans", sans-serif'
       );
 
       if (vRow) {

@@ -6,6 +6,13 @@ import {
   X,
   Maximize2,
   Minimize2,
+  RefreshCw,
+  Calendar,
+  FileSpreadsheet,
+  AlertCircle,
+  CheckCircle2,
+  Database,
+  Upload,
 } from 'lucide-react';
 import {
   GlobalParams,
@@ -32,6 +39,12 @@ import {
   getPriorityStyle,
   getDtMetricStyle,
 } from '../utils/tableTheme';
+import {
+  matchOperatorName,
+  OperatorRecord,
+  ParsedOperationalDate,
+  PIT_SHEET_CONFIGS,
+} from '../utils/operatorService';
 
 interface SpreadsheetOutputViewProps {
   pit: string;
@@ -43,6 +56,19 @@ interface SpreadsheetOutputViewProps {
   onUpdateLoaderAssignment: (loaderId: string, units: string[]) => void;
   onUpdateBulkAssignments: (newAssignments: Record<string, string[]>) => void;
   onUpdateLoaderConfig: (loaderId: string, patch: Partial<MasterLoader>) => void;
+  // Operator props
+  operationalDate: ParsedOperationalDate | null;
+  onDateChange?: (newDate: ParsedOperationalDate) => void;
+  operatorRecords: OperatorRecord[];
+  isOperatorsLoading: boolean;
+  operatorStatus: {
+    success: boolean;
+    message?: string;
+    source: 'google_sheets' | 'local_file';
+    dateKey: string;
+  };
+  onRefreshOperators: () => void;
+  onUploadLocalMonitoring: (file: File) => void;
 }
 
 export const SpreadsheetOutputView: React.FC<SpreadsheetOutputViewProps> = ({
@@ -55,9 +81,17 @@ export const SpreadsheetOutputView: React.FC<SpreadsheetOutputViewProps> = ({
   onUpdateLoaderAssignment,
   onUpdateBulkAssignments,
   onUpdateLoaderConfig,
+  operationalDate,
+  onDateChange,
+  operatorRecords,
+  isOperatorsLoading,
+  operatorStatus,
+  onRefreshOperators,
+  onUploadLocalMonitoring,
 }) => {
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [bulkText, setBulkText] = useState('');
+  const localMonitoringInputRef = useRef<HTMLInputElement>(null);
 
   // Mode tampilan di layar mobile: default true ("Pas Layar Simetris") agar tabel utuh & simetris di layar HP
   const [fitMobileScreen, setFitMobileScreen] = useState(true);
@@ -242,6 +276,125 @@ export const SpreadsheetOutputView: React.FC<SpreadsheetOutputViewProps> = ({
           >
             <ClipboardPaste className="w-3.5 h-3.5 shrink-0" />
             <span>Tempel Daftar DT</span>
+          </button>
+        </div>
+      </div>
+
+      {/* BAR STATUS & KONTROL OPERATOR GOOGLE SHEETS */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2.5 text-xs bg-slate-900/90 text-slate-300 px-3 sm:px-4 py-2.5 rounded-lg border border-slate-800">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-slate-800/90 border border-slate-700/80 text-slate-200">
+            <Database className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span className="font-semibold text-[11px] sm:text-xs">
+              {operatorStatus.source === 'google_sheets' ? 'Google Sheets' : 'File Monitoring'}:
+            </span>
+            <span className="font-mono font-bold text-amber-400 text-[11px] sm:text-xs">
+              {pit}
+            </span>
+          </div>
+
+          {/* Pemilihan Tanggal Sheet Operasional */}
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-slate-800/90 border border-slate-700/80 text-slate-200">
+            <Calendar className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+            <span className="text-[11px] sm:text-xs text-slate-400">Sheet:</span>
+            <select
+              value={operationalDate ? operationalDate.day : 1}
+              onChange={(e) => {
+                const day = parseInt(e.target.value, 10);
+                if (onDateChange && !isNaN(day)) {
+                  const dd = String(day).padStart(2, '0');
+                  onDateChange({
+                    day,
+                    monthNum: 10,
+                    year: 2026,
+                    display: `${dd} Okt 2026`,
+                    paddedKey: `${dd} OKT 2026`,
+                    singleKey: `${day} OKT 2026`,
+                    rawSource: `manual_selection_${dd}`,
+                  });
+                }
+              }}
+              className="bg-slate-900 text-sky-300 font-mono font-bold text-[11px] sm:text-xs rounded px-1.5 py-0.5 border border-slate-700 focus:outline-none focus:border-sky-500 cursor-pointer"
+              title="Pilih sheet tanggal operasional"
+            >
+              {Array.from({ length: 17 }, (_, i) => i + 1).map((d) => {
+                const dd = String(d).padStart(2, '0');
+                return (
+                  <option key={d} value={d}>
+                    {dd} Okt 2026
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          {/* Status Sinkronisasi */}
+          <div
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium border ${
+              isOperatorsLoading
+                ? 'bg-amber-950/40 text-amber-300 border-amber-800/60'
+                : operatorStatus.success
+                ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800/60'
+                : 'bg-rose-950/40 text-rose-300 border-rose-800/60'
+            }`}
+          >
+            {isOperatorsLoading ? (
+              <>
+                <RefreshCw className="w-3 h-3 text-amber-400 animate-spin shrink-0" />
+                <span>Memuat Google Sheets...</span>
+              </>
+            ) : operatorStatus.success ? (
+              <>
+                <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
+                <span>{operatorRecords.length} Operator Siap</span>
+              </>
+            ) : (
+              <>
+                <AlertCircle className="w-3 h-3 text-rose-400 shrink-0" />
+                <span className="truncate max-w-[200px] sm:max-w-[320px]" title={operatorStatus.message}>
+                  {operatorStatus.message || 'Sheet tidak ditemukan'}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Tombol Muat Ulang & Upload Monitoring */}
+        <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+          <input
+            ref={localMonitoringInputRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                onUploadLocalMonitoring(file);
+              }
+              e.target.value = '';
+            }}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => localMonitoringInputRef.current?.click()}
+            className="px-2.5 py-1 text-[11px] sm:text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-md transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+            title="Upload file monitoring operator (.xlsx / .xls / .csv) lokal"
+          >
+            <Upload className="w-3 h-3 text-slate-300 shrink-0" />
+            <span>Upload Monitoring</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onRefreshOperators}
+            disabled={isOperatorsLoading}
+            className="px-2.5 py-1 text-[11px] sm:text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 rounded-md transition-colors inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            title="Muat ulang data operator dari Google Sheets"
+          >
+            <RefreshCw
+              className={`w-3 h-3 shrink-0 ${isOperatorsLoading ? 'animate-spin' : ''}`}
+            />
+            <span>Refresh</span>
           </button>
         </div>
       </div>
@@ -792,7 +945,7 @@ export const SpreadsheetOutputView: React.FC<SpreadsheetOutputViewProps> = ({
                   style={cellBorderStyle}
                   className="border px-2 py-1.5"
                 >
-                  UNIT
+                  Nama Operator
                 </td>
                 <td
                   rowSpan={2}
@@ -984,17 +1137,47 @@ export const SpreadsheetOutputView: React.FC<SpreadsheetOutputViewProps> = ({
                             </div>
                           </td>
 
-                          {/* Kolom 2 UNIT (DT####) */}
-                          <td
-                            style={{
-                              ...cellBorderStyle,
-                              backgroundColor: TABLE_PALETTE.dataWhite.bg,
-                              color: TABLE_PALETTE.dataWhite.fg,
-                            }}
-                            className="border px-2 py-0.5 font-medium"
-                          >
-                            {normalizedUnit || '-'}
-                          </td>
+                          {/* Kolom NAMA OPERATOR (Menggantikan kode DT visual) */}
+                          {(() => {
+                            const opMatch = matchOperatorName(
+                              numericId,
+                              r.loader.name,
+                              operatorRecords
+                            );
+                            return (
+                              <td
+                                style={{
+                                  ...cellBorderStyle,
+                                  backgroundColor: TABLE_PALETTE.dataWhite.bg,
+                                  color: TABLE_PALETTE.dataWhite.fg,
+                                }}
+                                className="border px-1.5 py-0.5 text-center font-sans"
+                                title={
+                                  opMatch.message ||
+                                  (opMatch.status === 'FOUND'
+                                    ? `Operator: ${opMatch.name}${opMatch.loader ? ` (${opMatch.loader})` : ''}`
+                                    : 'Operator tidak ditemukan')
+                                }
+                              >
+                                {isOperatorsLoading ? (
+                                  <span className="text-[10px] text-slate-400 italic">Memuat...</span>
+                                ) : opMatch.status === 'FOUND' ? (
+                                  <span className="font-bold text-[11px] text-slate-900 truncate max-w-[94px] inline-block align-middle">
+                                    {opMatch.name}
+                                  </span>
+                                ) : opMatch.status === 'AMBIGUOUS' ? (
+                                  <span
+                                    className="font-semibold text-[10px] text-amber-800 bg-amber-100 px-1 py-0.5 rounded truncate max-w-[92px] inline-block align-middle"
+                                    title={opMatch.name}
+                                  >
+                                    {opMatch.name}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400 font-medium text-[11.5px]">—</span>
+                                )}
+                              </td>
+                            );
+                          })()}
 
                           {/* Jika DT ditemukan di VHMS tampilkan metriknya, jika tidak blok abu-abu terang */}
                           {vRow ? (
