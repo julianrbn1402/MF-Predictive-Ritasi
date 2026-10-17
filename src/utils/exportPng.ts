@@ -8,6 +8,8 @@ import { formatHdCount, formatIdNumber, formatMeters } from './formulas';
 import {
   matchOperatorName,
   OperatorRecord,
+  ShiftOption,
+  getShiftCode,
 } from './operatorService';
 import {
   SYMMETRIC_COL_WIDTHS,
@@ -31,6 +33,7 @@ interface ExportPngOptions {
   assignments: Record<string, string[]>;
   metadata: VhmsMetadata;
   operatorRecords?: OperatorRecord[];
+  activeShift?: ShiftOption;
 }
 
 export async function exportOutputTablesToPng({
@@ -41,6 +44,7 @@ export async function exportOutputTablesToPng({
   assignments,
   metadata,
   operatorRecords,
+  activeShift = '1',
 }: ExportPngOptions): Promise<void> {
   if (typeof document !== 'undefined' && 'fonts' in document) {
     try {
@@ -535,7 +539,16 @@ export async function exportOutputTablesToPng({
 
   drawGridCell(0, 2, curY, t3HeaderH, TABLE_PALETTE.headerMain, 'PC', fontHeader);
   drawGridCell(2, 1, curY, t3HeaderH, TABLE_PALETTE.headerMain, 'UNIT', fontHeader);
-  drawGridCell(3, 1, curY, t3HeaderH, TABLE_PALETTE.headerMain, 'Nama Operator', fontHeader);
+  const shiftBadge = getShiftCode(activeShift);
+  drawGridCell(
+    3,
+    1,
+    curY,
+    t3HeaderH,
+    TABLE_PALETTE.headerMain,
+    ['Nama Operator', `(${shiftBadge})`],
+    fontHeader
+  );
   drawGridCell(4, 1, curY, t3HeaderH, TABLE_PALETTE.headerMain, 'Jarak', fontHeader);
   drawGridCell(5, 2, curY, t3HeaderH1, TABLE_PALETTE.headerMain, 'Cycle Time', fontHeader);
   drawGridCell(
@@ -608,7 +621,8 @@ export async function exportOutputTablesToPng({
       const opMatch = matchOperatorName(
         numericId,
         r.loader.name,
-        operatorRecords || []
+        operatorRecords || [],
+        activeShift
       );
       const opDisplayName =
         opMatch.status === 'FOUND'

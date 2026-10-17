@@ -10,11 +10,33 @@ export interface ParsedOperationalDate {
   rawSource: string;
 }
 
+export type ShiftOption = '1' | '2';
+export type ShiftCode = 'S04' | 'S05';
+
+export const SHIFT_OPTIONS: Array<{
+  id: ShiftOption;
+  label: string;
+  code: ShiftCode;
+  description: string;
+}> = [
+  { id: '1', label: 'Shift 1', code: 'S04', description: 'Shift 1 (Kode S04)' },
+  { id: '2', label: 'Shift 2', code: 'S05', description: 'Shift 2 (Kode S05)' },
+];
+
+export function getShiftCode(shift: string | ShiftOption = '1'): ShiftCode {
+  const s = String(shift).trim().toUpperCase();
+  if (s === '2' || s.includes('SHIFT 2') || s.includes('S05')) {
+    return 'S05';
+  }
+  return 'S04';
+}
+
 export interface OperatorRecord {
   unit: string; // e.g. "4514"
   name: string; // e.g. "ANSARI"
   loader?: string; // e.g. "EX1233"
-  shift?: string; // e.g. "S04"
+  shift?: string; // e.g. "S04" atau "S05"
+  explicitShift?: string;
   nrp?: string;
   sourceRow?: number;
 }
@@ -303,7 +325,7 @@ export function parseGoogleSheetsCsv(csvText: string): OperatorRecord[] {
       if (loaderCol === -1 && (val === 'LOADER' || val === 'PC' || val === 'EX' || val === 'EXCAVATOR')) {
         loaderCol = c;
       }
-      if (shiftCol === -1 && val === 'SHIFT') {
+      if (shiftCol === -1 && (val === 'SHIFT' || val === 'KODE SHIFT' || val === 'SFT')) {
         shiftCol = c;
       }
       if (nrpCol === -1 && (val === 'NRP' || val === 'NIK')) {
@@ -340,7 +362,19 @@ export function parseGoogleSheetsCsv(csvText: string): OperatorRecord[] {
     const rawShift = shiftCol !== -1 ? cols[shiftCol] || '' : '';
     const rawNrp = nrpCol !== -1 ? cols[nrpCol] || '' : '';
 
-    if (rawShift) currentShift = rawShift;
+    const firstColUpper = (cols[0] || '').toUpperCase();
+    const secondColUpper = (cols[1] || '').toUpperCase();
+    if (firstColUpper.includes('TOTAL') || secondColUpper.includes('TOTAL')) {
+      currentShift = '';
+      currentLoader = '';
+    }
+
+    if (rawShift) {
+      const sUp = rawShift.toUpperCase();
+      if (sUp.includes('S04')) currentShift = 'S04';
+      else if (sUp.includes('S05')) currentShift = 'S05';
+      else currentShift = rawShift.trim();
+    }
     if (rawLoader) currentLoader = rawLoader;
 
     if (!rawHauler || !rawName) continue;
@@ -356,7 +390,8 @@ export function parseGoogleSheetsCsv(csvText: string): OperatorRecord[] {
         unit: cleanUnit,
         name: rawName.replace(/^["'\s]+|["'\s]+$/g, '').trim(),
         loader: (rawLoader || currentLoader).replace(/\s+/g, '').toUpperCase(),
-        shift: (rawShift || currentShift).trim(),
+        shift: (rawShift || currentShift).trim().toUpperCase(),
+        explicitShift: rawShift.trim().toUpperCase() || undefined,
         nrp: rawNrp || undefined,
         sourceRow: r + 1,
       });
@@ -545,13 +580,13 @@ export function parseLocalMonitoringFile(
 }
 
 /**
- * Pencocokan nama operator untuk nomor unit dan loader tertentu
+ * Pencocokan nama operator untuk nomor unit dan loader tertentu berdasarkan shift aktif (Shift 1 = S04, Shift 2 = S05)
  */
 export function matchOperatorName(
   rawUnitInput: string,
   loaderName: string,
   records: OperatorRecord[],
-  _hours?: number[]
+  activeShift: string | ShiftOption = '1'
 ): OperatorMatchResult {
   const digitsMatch = rawUnitInput.match(/\d+/);
   const targetDigits = digitsMatch ? digitsMatch[0] : rawUnitInput.replace(/\D+/g, '');
@@ -565,78 +600,65 @@ export function matchOperatorName(
     };
   }
 
-  // Filter records yang memiliki nomor unit yang sama
-  const matchingUnits = records.filter((r) => r.unit === targetDigits);
+  const targetShiftCode = getShiftCode(activeShift);
+  const shiftLabel = targetShiftCode === 'S05' ? 'Shift 2 (S05)' : 'Shift 1 (S04)';
+
+  // Periksa apakah dataset memiliki data kode shift (seperti S04 atau S05)
+  const hasShiftData = records.some(
+    (r) =>
+      r.shift &&
+      (r.shift.toUpperCase().includes('S04') || r.shift.toUpperCase().includes('S05'))
+  );
+
+  // Saring records: jika dataset memiliki data shift, saring HANYA baris yang sesuai dengan kode shift aktif
+  const candidateRecords = hasShiftData
+    ? records.filter((r) => r.shift && r.shift.toUpperCase().includes(targetShiftCode))
+    : records;
+
+  // Filter records yang memiliki nomor unit yang sama pada shift terpilih
+  const matchingUnits = candidateRecords.filter((r) => r.unit === targetDigits);
 
   if (matchingUnits.length === 0) {
     return {
       unit: targetDigits,
       name: '—',
       status: 'NOT_FOUND',
-      message: `Operator untuk unit ${targetDigits} tidak ditemukan`,
+      shift: targetShiftCode,
+      message: `Operator untuk unit ${targetDigits} pada ${shiftLabel} tidak ditemukan`,
     };
   }
 
-  // Jika hanya ada 1 record, langsung cocok
+  // Jika hanya ada 1 record pada shift terpilih, langsung cocok
   if (matchingUnits.length === 1) {
     return {
       unit: targetDigits,
       name: matchingUnits[0].name,
       status: 'FOUND',
       loader: matchingUnits[0].loader,
-      shift: matchingUnits[0].shift,
+      shift: matchingUnits[0].shift || targetShiftCode,
     };
   }
 
-  // Jika ada beberapa record, cocokkan dengan Loader dan Shift
+  // Jika ada beberapa record pada shift yang sama, cocokkan dengan Loader
   const normLoader = loaderName.replace(/\s+/g, '').toUpperCase();
 
-  // Prioritas 1: Cocok Loader DAN Shift S04 (Shift Siang reguler untuk monitoring jam 06-17)
-  const loaderAndS04 = matchingUnits.filter(
-    (r) =>
-      r.loader &&
-      (r.loader === normLoader || normLoader.includes(r.loader) || r.loader.includes(normLoader)) &&
-      r.shift?.toUpperCase().includes('S04')
-  );
-  if (loaderAndS04.length === 1) {
-    return {
-      unit: targetDigits,
-      name: loaderAndS04[0].name,
-      status: 'FOUND',
-      loader: loaderAndS04[0].loader,
-      shift: loaderAndS04[0].shift,
-    };
-  }
-
-  // Prioritas 2: Cocok Loader
   const loaderMatch = matchingUnits.filter(
     (r) =>
       r.loader &&
       (r.loader === normLoader || normLoader.includes(r.loader) || r.loader.includes(normLoader))
   );
+
   if (loaderMatch.length === 1) {
     return {
       unit: targetDigits,
       name: loaderMatch[0].name,
       status: 'FOUND',
       loader: loaderMatch[0].loader,
-      shift: loaderMatch[0].shift,
+      shift: loaderMatch[0].shift || targetShiftCode,
     };
   }
 
-  // Prioritas 3: Cocok Shift S04
-  const s04Match = matchingUnits.filter((r) => r.shift?.toUpperCase().includes('S04'));
-  if (s04Match.length === 1) {
-    return {
-      unit: targetDigits,
-      name: s04Match[0].name,
-      status: 'FOUND',
-      loader: s04Match[0].loader,
-      shift: s04Match[0].shift,
-    };
-  }
-
-  // Cek apakah seluruh match memiliki nama yang sama persis (hanya beda baris/jam)
+  // Cek apakah seluruh match memiliki nama yang sama persis
   const distinctNames = Array.from(new Set(matchingUnits.map((r) => r.name.trim())));
   if (distinctNames.length === 1) {
     return {
@@ -644,7 +666,7 @@ export function matchOperatorName(
       name: distinctNames[0],
       status: 'FOUND',
       loader: matchingUnits[0].loader,
-      shift: matchingUnits[0].shift,
+      shift: matchingUnits[0].shift || targetShiftCode,
     };
   }
 
@@ -653,7 +675,8 @@ export function matchOperatorName(
     unit: targetDigits,
     name: distinctNames.join(' / '),
     status: 'AMBIGUOUS',
+    shift: targetShiftCode,
     ambiguousNames: distinctNames,
-    message: `Ambigu: Ditemukan ${distinctNames.length} nama operator untuk unit ${targetDigits}`,
+    message: `Ambigu: Ditemukan ${distinctNames.length} nama operator untuk unit ${targetDigits} pada ${shiftLabel}`,
   };
 }

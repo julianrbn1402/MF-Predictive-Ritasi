@@ -44,6 +44,7 @@ import {
   OperatorRecord,
   ParsedOperationalDate,
   PIT_SHEET_CONFIGS,
+  ShiftOption,
 } from '../utils/operatorService';
 
 interface SpreadsheetOutputViewProps {
@@ -59,6 +60,8 @@ interface SpreadsheetOutputViewProps {
   // Operator props
   operationalDate: ParsedOperationalDate | null;
   onDateChange?: (newDate: ParsedOperationalDate) => void;
+  activeShift?: ShiftOption;
+  onShiftChange?: (shift: ShiftOption) => void;
   operatorRecords: OperatorRecord[];
   isOperatorsLoading: boolean;
   operatorStatus: {
@@ -83,6 +86,8 @@ export const SpreadsheetOutputView: React.FC<SpreadsheetOutputViewProps> = ({
   onUpdateLoaderConfig,
   operationalDate,
   onDateChange,
+  activeShift = '1',
+  onShiftChange,
   operatorRecords,
   isOperatorsLoading,
   operatorStatus,
@@ -326,6 +331,34 @@ export const SpreadsheetOutputView: React.FC<SpreadsheetOutputViewProps> = ({
                 );
               })}
             </select>
+          </div>
+
+          {/* Pemilihan Shift Operasional (Shift 1 = S04, Shift 2 = S05) */}
+          <div className="flex items-center gap-1 bg-slate-950/80 p-0.5 rounded border border-slate-700/80">
+            <button
+              type="button"
+              onClick={() => onShiftChange && onShiftChange('1')}
+              className={`px-2 py-0.5 text-[11px] font-mono font-bold rounded transition-colors cursor-pointer ${
+                activeShift === '1'
+                  ? 'bg-amber-500 text-slate-950 shadow-xs'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Shift 1: Mengambil nama operator dari baris berkode S04"
+            >
+              Shift 1 (S04)
+            </button>
+            <button
+              type="button"
+              onClick={() => onShiftChange && onShiftChange('2')}
+              className={`px-2 py-0.5 text-[11px] font-mono font-bold rounded transition-colors cursor-pointer ${
+                activeShift === '2'
+                  ? 'bg-amber-500 text-slate-950 shadow-xs'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title="Shift 2: Mengambil nama operator dari baris berkode S05"
+            >
+              Shift 2 (S05)
+            </button>
           </div>
 
           {/* Status Sinkronisasi */}
@@ -945,7 +978,10 @@ export const SpreadsheetOutputView: React.FC<SpreadsheetOutputViewProps> = ({
                   style={cellBorderStyle}
                   className="border px-2 py-1.5"
                 >
-                  Nama Operator
+                  <div>Nama Operator</div>
+                  <div className="text-[10px] font-mono text-amber-300 font-semibold leading-tight">
+                    ({activeShift === '2' ? 'S05' : 'S04'})
+                  </div>
                 </td>
                 <td
                   rowSpan={2}
@@ -1142,7 +1178,8 @@ export const SpreadsheetOutputView: React.FC<SpreadsheetOutputViewProps> = ({
                             const opMatch = matchOperatorName(
                               numericId,
                               r.loader.name,
-                              operatorRecords
+                              operatorRecords,
+                              activeShift
                             );
                             return (
                               <td

@@ -36,6 +36,7 @@ import {
   parseOperationalDate,
   OperatorRecord,
   ParsedOperationalDate,
+  ShiftOption,
 } from './utils/operatorService';
 
 const STORAGE_KEYS = {
@@ -45,6 +46,7 @@ const STORAGE_KEYS = {
   VHMS_META: 'mf_aria_vhms_meta_v2',
   VHMS_ROWS: 'mf_aria_vhms_rows_v2',
   ASSIGNMENTS: 'mf_aria_assignments_v2',
+  SHIFT: 'mf_aria_shift_v2',
 };
 
 const EMPTY_VHMS_METADATA: VhmsMetadata = {
@@ -108,6 +110,9 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('output');
   const [activePit, setActivePit] = useState<string>('PIT 11');
+  const [activeShift, setActiveShift] = useState<ShiftOption>(() =>
+    loadFromStorage(STORAGE_KEYS.SHIFT, '1')
+  );
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -134,6 +139,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.ASSIGNMENTS, JSON.stringify(assignments));
   }, [assignments]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.SHIFT, JSON.stringify(activeShift));
+  }, [activeShift]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -380,6 +389,7 @@ export default function App() {
       assignments,
       metadata: vhmsMetadata,
       operatorRecords,
+      activeShift,
     });
     showToast(`Tabel Output MF (${currentPit}) berhasil diunduh sebagai PNG.`);
   };
@@ -547,33 +557,69 @@ export default function App() {
         </div>
       </header>
 
-      {/* Sub-bar Pilihan Pit, Info File & Tombol Reset (Simetris di Mobile & Desktop) */}
+      {/* Sub-bar Pilihan Pit, Shift, Info File & Tombol Reset (Simetris di Mobile & Desktop) */}
       <div className="bg-slate-900/60 border-b border-slate-800 px-3 sm:px-6 py-2.5">
         <div className="max-w-[1140px] mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
-          {/* Pilihan Pit: Grid Simetris Rata Lebar di Mobile */}
-          <div
-            className="grid gap-1.5 w-full sm:w-auto sm:flex sm:items-center"
-            style={{
-              gridTemplateColumns: `repeat(${Math.min(4, Math.max(1, detectedPits.length))}, minmax(0, 1fr))`,
-            }}
-          >
-            {detectedPits.map((pitName) => (
+          {/* Pilihan Pit & Shift */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div
+              className="grid gap-1.5 w-full sm:w-auto sm:flex sm:items-center"
+              style={{
+                gridTemplateColumns: `repeat(${Math.min(4, Math.max(1, detectedPits.length))}, minmax(0, 1fr))`,
+              }}
+            >
+              {detectedPits.map((pitName) => (
+                <button
+                  key={pitName}
+                  type="button"
+                  onClick={() => {
+                    setActivePit(pitName);
+                    setActiveTab('output');
+                  }}
+                  className={`px-3 py-1.5 sm:py-1 text-xs font-mono font-bold rounded-md text-center transition-colors cursor-pointer ${
+                    currentPit === pitName && activeTab === 'output'
+                      ? 'bg-amber-500 text-slate-950 shadow-xs'
+                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  {pitName}
+                </button>
+              ))}
+            </div>
+
+            {/* Pilihan Shift 1 (S04) / Shift 2 (S05) */}
+            <div className="flex items-center gap-1 bg-slate-950/80 p-0.5 rounded-md border border-slate-800">
               <button
-                key={pitName}
                 type="button"
                 onClick={() => {
-                  setActivePit(pitName);
-                  setActiveTab('output');
+                  setActiveShift('1');
+                  showToast('Shift diubah ke Shift 1 (S04)');
                 }}
-                className={`px-3 py-1.5 sm:py-1 text-xs font-mono font-bold rounded-md text-center transition-colors cursor-pointer ${
-                  currentPit === pitName && activeTab === 'output'
+                className={`px-2 py-1 text-[11px] sm:text-xs font-mono font-bold rounded transition-colors cursor-pointer ${
+                  activeShift === '1'
                     ? 'bg-amber-500 text-slate-950 shadow-xs'
-                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    : 'text-slate-400 hover:text-slate-200'
                 }`}
+                title="Pilih Shift 1 (Kode baris S04)"
               >
-                {pitName}
+                Shift 1 (S04)
               </button>
-            ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveShift('2');
+                  showToast('Shift diubah ke Shift 2 (S05)');
+                }}
+                className={`px-2 py-1 text-[11px] sm:text-xs font-mono font-bold rounded transition-colors cursor-pointer ${
+                  activeShift === '2'
+                    ? 'bg-amber-500 text-slate-950 shadow-xs'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="Pilih Shift 2 (Kode baris S05)"
+              >
+                Shift 2 (S05)
+              </button>
+            </div>
           </div>
 
           {/* Info File & Tombol Reset */}
@@ -620,6 +666,11 @@ export default function App() {
             onDateChange={(newDate) => {
               setSelectedDateOverride(newDate);
               showToast(`Sheet tanggal diganti ke ${newDate.display}.`);
+            }}
+            activeShift={activeShift}
+            onShiftChange={(s) => {
+              setActiveShift(s);
+              showToast(`Shift diganti ke Shift ${s} (${s === '2' ? 'S05' : 'S04'}).`);
             }}
             operatorRecords={operatorRecords}
             isOperatorsLoading={isOperatorsLoading}
