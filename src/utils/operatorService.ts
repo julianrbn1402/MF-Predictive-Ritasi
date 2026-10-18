@@ -433,6 +433,11 @@ export function registerDiscoveredDateGid(pit: string, dateKey: string, gid: str
 /**
  * Mengambil daftar sheet tanggal secara dinamis dan aktual dari Google Sheets untuk PIT tertentu.
  * Hanya dipanggil ketika pengguna menekan tombol "Refresh Tanggal".
+ *
+ * Menggunakan pendekatan Multi-Tier Tahan Banting:
+ * - Tier 1: Google Apps Script Web App Deployment URL (jika dikonfigurasi via VITE_GOOGLE_APPS_SCRIPT_URL)
+ * - Tier 2: Vercel Serverless Function (/api/sheets-dates)
+ * - Tier 3: Direct Client-Side XLSX Export dari Google Sheets (CORS-friendly fallback tanpa ketergantungan server)
  */
 export async function fetchAvailableDatesForPit(
   pit: string
@@ -449,26 +454,155 @@ export async function fetchAvailableDatesForPit(
     };
   }
 
-  try {
-    const res = await fetch(`/api/sheets-dates?pit=${encodeURIComponent(normPit)}`);
-    if (!res.ok) {
-      const errJson = await res.json().catch(() => null);
-      throw new Error(errJson?.error || `HTTP ${res.status}: ${res.statusText}`);
+  let discoveredDates: AvailableDateSheet[] = [];
+  let sourceUsed = '';
+
+  // -------------------------------------------------------------------------
+  // TIER 1: Google Apps Script Web App Deployment (Opsional via Env Var)
+  // -------------------------------------------------------------------------
+  const gasUrl = (
+    (typeof import.meta !== 'undefined' && import.meta.env
+      ? import.meta.env.VITE_GOOGLE_APPS_SCRIPT_URL ||
+        import.meta.env.VITE_SHEETS_DATES_API_URL
+      : '') || ''
+  ).trim();
+
+  if (gasUrl) {
+    try {
+      const sep = gasUrl.includes('?') ? '&' : '?';
+      const targetUrl = `${gasUrl}${sep}pit=${encodeURIComponent(normPit)}`;
+      const res = await fetch(targetUrl, {
+        method: 'GET',
+        headers: { Accept: 'application/json, text/plain, */*' },
+        redirect: 'follow',
+      });
+
+      if (res.ok) {
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const data = await res.json();
+          if (data && (data.success || Array.isArray(data.dates))) {
+            const rawList = Array.isArray(data.dates) ? data.dates : [];
+            discoveredDates = rawList
+              .map((item: any) => ({
+                sheetName: item.sheetName || item.name || '',
+                gid: String(item.gid || ''),
+                parsedDate:
+                  item.parsedDate ||
+                  parseOperationalDateFromSheetName(item.sheetName || item.name || ''),
+              }))
+              .filter(
+                (d: AvailableDateSheet): d is AvailableDateSheet =>
+                  d.parsedDate !== null && Boolean(d.sheetName)
+              );
+
+            if (discoveredDates.length > 0) {
+              sourceUsed = 'Google Apps Script';
+            }
+          }
+        }
+      }
+    } catch {
+      // Jika Google Apps Script gagal/timeout, lanjutkan ke Tier 2
     }
+  }
 
-    const data = await res.json();
-    if (!data.success || !Array.isArray(data.dates)) {
-      throw new Error(data.error || 'Respon daftar tanggal tidak valid dari server.');
+  // -------------------------------------------------------------------------
+  // TIER 2: Vercel Serverless Function / Backend API Endpoint (/api/sheets-dates)
+  // -------------------------------------------------------------------------
+  if (discoveredDates.length === 0) {
+    try {
+      const res = await fetch(`/api/sheets-dates?pit=${encodeURIComponent(normPit)}`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+      });
+
+      if (res.ok) {
+        const data = await res.json().catch(() => null);
+        if (data && data.success && Array.isArray(data.dates) && data.dates.length > 0) {
+          discoveredDates = data.dates
+            .map((item: any) => ({
+              sheetName: item.sheetName,
+              gid: String(item.gid || ''),
+              parsedDate:
+                item.parsedDate || parseOperationalDateFromSheetName(item.sheetName),
+            }))
+            .filter(
+              (d: AvailableDateSheet): d is AvailableDateSheet =>
+                d.parsedDate !== null && Boolean(d.sheetName)
+            );
+
+          if (discoveredDates.length > 0) {
+            sourceUsed = 'Vercel Serverless Function';
+          }
+        }
+      }
+    } catch {
+      // Jika /api/sheets-dates menghasilkan 404 atau network error, lanjut ke Tier 3
     }
+  }
 
-    const list: AvailableDateSheet[] = data.dates.map((item: any) => ({
-      sheetName: item.sheetName,
-      gid: item.gid,
-      parsedDate: item.parsedDate,
-    }));
+  // -------------------------------------------------------------------------
+  // TIER 3: Direct Client-Side Google Sheets XLSX Export (Zero-Dependency Fallback)
+  // Membaca daftar sheet langsung dari Google Sheets export XLSX.
+  // Didukung CORS (access-control-allow-origin: *) di semua deployment Vercel.
+  // -------------------------------------------------------------------------
+  if (discoveredDates.length === 0) {
+    try {
+      const xlsxUrl = `https://docs.google.com/spreadsheets/d/${config.spreadsheetId}/export?format=xlsx`;
+      const res = await fetch(xlsxUrl, {
+        method: 'GET',
+        redirect: 'follow',
+      });
 
-    // Daftarkan seluruh GID baru ke dateGidMap in-memory PIT aktif
-    list.forEach((item) => {
+      if (res.ok) {
+        const arrayBuf = await res.arrayBuffer();
+        const wb = XLSX.read(arrayBuf, { type: 'array', bookSheets: true });
+        const sheetNames = wb.SheetNames || [];
+
+        const validSheets: AvailableDateSheet[] = [];
+        for (const name of sheetNames) {
+          const parsed = parseOperationalDateFromSheetName(name);
+          if (parsed) {
+            // Cocokkan GID yang sudah diketahui jika ada
+            const knownGid =
+              config.dateGidMap[name] ||
+              config.dateGidMap[parsed.paddedKey] ||
+              config.dateGidMap[parsed.singleKey] ||
+              '';
+
+            validSheets.push({
+              sheetName: name,
+              gid: knownGid,
+              parsedDate: parsed,
+            });
+          }
+        }
+
+        // Urutkan secara kronologis berdasarkan tahun, bulan, tanggal
+        validSheets.sort((a, b) => {
+          const pA = a.parsedDate;
+          const pB = b.parsedDate;
+          const valA = pA.year * 10000 + pA.monthNum * 100 + pA.day;
+          const valB = pB.year * 10000 + pB.monthNum * 100 + pB.day;
+          return valA - valB;
+        });
+
+        if (validSheets.length > 0) {
+          discoveredDates = validSheets;
+          sourceUsed = 'Google Sheets Direct XLSX Export';
+        }
+      }
+    } catch {
+      // Lanjutkan jika direct XLSX juga gagal
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // PENYELESAIAN & REGISTRASI GID KE MEMORY
+  // -------------------------------------------------------------------------
+  if (discoveredDates.length > 0) {
+    discoveredDates.forEach((item) => {
       registerDiscoveredDateGid(normPit, item.sheetName, item.gid);
       if (item.parsedDate) {
         registerDiscoveredDateGid(normPit, item.parsedDate.paddedKey, item.gid);
@@ -480,20 +614,20 @@ export async function fetchAvailableDatesForPit(
     return {
       success: true,
       pit: normPit,
-      dates: list,
-      totalSheetsFound: list.length,
-      message: `Berhasil menemukan ${list.length} sheet tanggal operasional untuk ${normPit}.`,
-    };
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return {
-      success: false,
-      pit: normPit,
-      dates: [],
-      error: msg,
-      message: `Gagal memperbarui daftar sheet tanggal untuk ${normPit}: ${msg}`,
+      dates: discoveredDates,
+      totalSheetsFound: discoveredDates.length,
+      message: `Berhasil menemukan ${discoveredDates.length} sheet tanggal operasional untuk ${normPit} (${sourceUsed}).`,
     };
   }
+
+  // Jika seluruh tier gagal, pertahankan daftar sebelumnya dan berikan pesan jelas
+  return {
+    success: false,
+    pit: normPit,
+    dates: [],
+    error: 'Tidak dapat mengakses Google Sheets dari Vercel/browser. Periksa koneksi internet atau izin spreadsheet.',
+    message: `Gagal memperbarui daftar sheet tanggal untuk ${normPit}. Daftar tanggal sebelumnya tetap dipertahankan.`,
+  };
 }
 
 /**
@@ -540,7 +674,7 @@ export function parseGoogleSheetsCsv(csvText: string): OperatorRecord[] {
 
   for (let r = 0; r < Math.min(25, lines.length); r++) {
     const cols = parseRow(lines[r]).map((s) => s.toUpperCase());
-    for (let c = 0; c < cols.length; c++) {
+    for (let c = 0; c < Math.min(10, cols.length); c++) {
       const val = cols[c];
       if (haulerCol === -1 && (val === 'HAULER' || val === 'UNIT' || val === 'NO UNIT' || val === 'NO. UNIT')) {
         haulerCol = c;
@@ -687,6 +821,7 @@ export async function fetchOperatorsFromGoogleSheets(
     config.dateGidMap[parsedDate.display.toUpperCase()] ||
     '';
 
+  const sheetNameUsed = parsedDate.paddedKey;
   const cacheKey = `${normalizedPit}_${parsedDate.paddedKey}_${targetGid}`;
   if (!forceRefresh && OPERATOR_CACHE.has(cacheKey)) {
     const cached = OPERATOR_CACHE.get(cacheKey)!;
@@ -696,39 +831,53 @@ export async function fetchOperatorsFromGoogleSheets(
       dateKey: parsedDate.display,
       records: cached.records,
       source: 'google_sheets',
-      sheetNameUsed: parsedDate.paddedKey,
+      sheetNameUsed,
       message: `Data operator dimuat dari cache (${cached.records.length} data)`,
     };
   }
 
-  // Jika tanggal tidak ditemukan di map sheet yang diketahui:
-  if (!targetGid) {
-    return {
-      success: false,
-      pit,
-      dateKey: parsedDate.display,
-      records: [],
-      source: 'google_sheets',
-      sheetNameUsed: parsedDate.paddedKey,
-      message: `Sheet untuk tanggal ${parsedDate.display} belum terdaftar pada ${pit}. Silakan tekan tombol "Refresh Tanggal" untuk mendeteksi sheet baru dari Google Sheets.`,
-      error: 'SHEET_DATE_NOT_FOUND',
-    };
-  }
-
   try {
-    const exportUrl = `https://docs.google.com/spreadsheets/d/${config.spreadsheetId}/export?format=csv&gid=${targetGid}`;
-    const response = await fetch(exportUrl, {
-      method: 'GET',
-      headers: {
-        Accept: 'text/csv, text/plain, */*',
-      },
-    });
+    let csvText = '';
+    let fetchMethod = '';
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    // Cara 1: Fetch via GID jika GID tersedia
+    if (targetGid) {
+      try {
+        const exportUrl = `https://docs.google.com/spreadsheets/d/${config.spreadsheetId}/export?format=csv&gid=${targetGid}`;
+        const response = await fetch(exportUrl, {
+          method: 'GET',
+          headers: {
+            Accept: 'text/csv, text/plain, */*',
+          },
+        });
+        if (response.ok) {
+          csvText = await response.text();
+          fetchMethod = 'CSV GID';
+        }
+      } catch {
+        // Fallback ke Cara 2
+      }
     }
 
-    const csvText = await response.text();
+    // Cara 2: Fetch via sheetName menggunakan Google Visualization API (bebas CORS & tidak butuh GID)
+    if (!csvText) {
+      const gvizUrl = `https://docs.google.com/spreadsheets/d/${config.spreadsheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetNameUsed)}`;
+      const response = await fetch(gvizUrl, {
+        method: 'GET',
+        headers: {
+          Accept: 'text/csv, text/plain, */*',
+        },
+      });
+      if (response.ok) {
+        csvText = await response.text();
+        fetchMethod = 'GViz SheetName';
+      } else if (!targetGid) {
+        throw new Error(`Google Sheets HTTP ${response.status}: Sheet "${sheetNameUsed}" tidak ditemukan.`);
+      } else {
+        throw new Error(`Google Sheets HTTP ${response.status}: ${response.statusText}`);
+      }
+    }
+
     const records = parseGoogleSheetsCsv(csvText);
 
     if (records.length === 0) {

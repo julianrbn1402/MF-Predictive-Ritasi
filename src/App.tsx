@@ -6,6 +6,9 @@ import {
   RotateCcw,
   CheckCircle2,
   ExternalLink,
+  Calendar,
+  RefreshCw,
+  Pickaxe,
 } from 'lucide-react';
 import {
   ColumnMapping,
@@ -497,210 +500,389 @@ export default function App() {
         </div>
       )}
 
-      {/* TOP BAR (Responsif & Simetris untuk Mobile maupun Desktop) */}
-      <header className="sticky top-0 z-30 bg-slate-900 border-b border-slate-800 px-3 sm:px-6 py-2.5">
-        <div className="max-w-[1140px] mx-auto flex flex-col gap-2.5 md:flex-row md:items-center md:justify-between">
-          {/* Baris Atas Mobile / Zona Kiri & Kanan */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex flex-col sm:flex-row sm:items-baseline sm:gap-2 min-w-0">
-              <a
-                href="#top"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setActiveTab('output');
-                }}
-                className="text-sm sm:text-base font-bold tracking-tight text-white font-display truncate hover:text-slate-200"
+      {/* TOP BAR / HEADER (Sistem Grid Simetris, Modern & Responsif) */}
+      <header className="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 shadow-md">
+        <div className="max-w-[1140px] mx-auto px-3 sm:px-6">
+          {/* Tampilan Desktop (>= 1024px): 1 Baris Sejajar & Simetris */}
+          <div className="hidden lg:flex items-center justify-between gap-4 h-14">
+            {/* 1. Brand & Portal Autonomia */}
+            <div className="flex items-center gap-2.5 shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0">
+                <Pickaxe className="w-4 h-4" />
+              </div>
+              <div className="flex flex-col">
+                <a
+                  href="#top"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setActiveTab('output');
+                  }}
+                  className="text-sm font-bold tracking-tight text-white font-display hover:text-amber-400 transition-colors leading-none"
+                >
+                  MF Predictive Ritasi
+                </a>
+                <a
+                  href="https://operational-excellence-aria.vercel.app/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[10px] font-semibold italic text-amber-400/90 hover:text-amber-300 transition-colors flex items-center gap-0.5 leading-none mt-1"
+                  title="Buka portal Autonomia! di tab baru"
+                >
+                  <span>part of Autonomia!</span>
+                  <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                </a>
+              </div>
+            </div>
+
+            {/* 2. Navigasi Tab Utama (Tengah Simetris) */}
+            <nav className="flex items-center gap-1 bg-slate-950/80 p-1 rounded-lg border border-slate-800">
+              <button
+                type="button"
+                onClick={() => setActiveTab('output')}
+                className={`h-8 px-3.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap cursor-pointer flex items-center ${
+                  activeTab === 'output'
+                    ? 'bg-amber-500 text-slate-950 font-bold shadow-xs'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                }`}
               >
-                MF Predictive Ritasi
-              </a>
+                Tabel Output MF
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('vhms')}
+                className={`h-8 px-3.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === 'vhms'
+                    ? 'bg-amber-500 text-slate-950 font-bold shadow-xs'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                }`}
+              >
+                <span>Data VHMS</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
+                    activeTab === 'vhms'
+                      ? 'bg-slate-950/20 text-slate-950 font-bold'
+                      : 'bg-slate-800 text-slate-400'
+                  }`}
+                >
+                  {vhmsRows.length}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('settings')}
+                className={`h-8 px-3.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap cursor-pointer flex items-center ${
+                  activeTab === 'settings'
+                    ? 'bg-amber-500 text-slate-950 font-bold shadow-xs'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                }`}
+              >
+                Pengaturan
+              </button>
               <a
                 href="https://operational-excellence-aria.vercel.app/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[10px] sm:text-xs font-semibold italic text-amber-400 hover:text-amber-300 truncate inline-flex items-center gap-0.5"
+                className="h-8 px-3 text-xs font-bold text-amber-400 hover:text-amber-300 hover:bg-slate-800/60 rounded-md transition-colors whitespace-nowrap inline-flex items-center gap-1"
                 title="Buka portal Autonomia! di tab baru"
               >
-                part of Autonomia!
+                <span>Autonomia!</span>
+                <ExternalLink className="w-3 h-3 shrink-0" />
               </a>
-            </div>
+            </nav>
 
-            {/* Tombol Aksi Mobile (Sejajar & Simetris di Kanan Atas) */}
-            <div className="flex md:hidden items-center gap-1.5 shrink-0">
+            {/* 3. Kelompok Tombol Aksi Global (Kanan) */}
+            <div className="flex items-center gap-2 shrink-0">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleFileInputChange}
+                className="hidden"
+              />
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="px-2.5 py-1.5 text-[11px] font-semibold bg-amber-500 text-slate-950 hover:bg-amber-400 rounded-md transition-colors whitespace-nowrap flex items-center justify-center gap-1 cursor-pointer"
+                className="h-8.5 px-3.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-lg inline-flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+                title="Unggah file spreadsheet raw VHMS (.xlsx / .xls)"
               >
                 <Upload className="w-3.5 h-3.5 shrink-0" />
-                <span>Upload</span>
+                <span>Upload VHMS</span>
               </button>
+
               <button
                 type="button"
                 onClick={handleExportPng}
-                className="px-2.5 py-1.5 text-[11px] font-semibold bg-slate-800 text-slate-100 hover:bg-slate-700 rounded-md transition-colors whitespace-nowrap flex items-center justify-center gap-1 border border-slate-700 cursor-pointer"
+                className="h-8.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold text-xs rounded-lg border border-slate-700 inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Unduh seluruh tabel dalam format gambar PNG berkualitas tinggi"
               >
                 <Download className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span>PNG</span>
+                <span>Export PNG</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleResetAllData}
+                className="h-8.5 px-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 hover:text-rose-200 font-semibold text-xs rounded-lg border border-rose-500/30 inline-flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+                title="Reset seluruh data ke kondisi awal"
+              >
+                <RotateCcw className="w-3 h-3 shrink-0" />
+                <span>Reset</span>
               </button>
             </div>
           </div>
 
-          {/* Navigasi Tab: Grid 4 Kolom Simetris di Mobile, Inline di Desktop */}
-          <nav className="grid grid-cols-4 gap-1 bg-slate-950/70 p-1 rounded-lg border border-slate-800 md:bg-transparent md:p-0 md:border-0 md:flex md:items-center md:gap-5 text-xs font-medium text-slate-400">
-            <button
-              type="button"
-              onClick={() => setActiveTab('output')}
-              className={`py-1.5 px-1 sm:px-2 rounded-md md:rounded-none md:py-1 text-center transition-colors whitespace-nowrap cursor-pointer text-[10px] sm:text-xs ${
-                activeTab === 'output'
-                  ? 'bg-amber-500 text-slate-950 font-bold md:bg-transparent md:text-amber-400 md:font-semibold md:underline md:underline-offset-8 md:decoration-2'
-                  : 'text-slate-300 hover:text-white'
-              }`}
-            >
-              Tabel Output MF
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('vhms')}
-              className={`py-1.5 px-1 sm:px-2 rounded-md md:rounded-none md:py-1 text-center transition-colors whitespace-nowrap cursor-pointer text-[10px] sm:text-xs ${
-                activeTab === 'vhms'
-                  ? 'bg-amber-500 text-slate-950 font-bold md:bg-transparent md:text-amber-400 md:font-semibold md:underline md:underline-offset-8 md:decoration-2'
-                  : 'text-slate-300 hover:text-white'
-              }`}
-            >
-              Data VHMS ({vhmsRows.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('settings')}
-              className={`py-1.5 px-1 sm:px-2 rounded-md md:rounded-none md:py-1 text-center transition-colors whitespace-nowrap cursor-pointer text-[10px] sm:text-xs ${
-                activeTab === 'settings'
-                  ? 'bg-amber-500 text-slate-950 font-bold md:bg-transparent md:text-amber-400 md:font-semibold md:underline md:underline-offset-8 md:decoration-2'
-                  : 'text-slate-300 hover:text-white'
-              }`}
-            >
-              Pengaturan
-            </button>
-            <a
-              href="https://operational-excellence-aria.vercel.app/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="py-1.5 px-1 sm:px-2 rounded-md md:rounded-none md:py-1 text-center transition-colors whitespace-nowrap cursor-pointer text-[10px] sm:text-xs text-amber-400 hover:text-amber-300 font-bold flex items-center justify-center gap-1 hover:bg-slate-800 md:hover:bg-transparent"
-              title="Buka Autonomia! di tab baru"
-            >
-              <span>Autonomia!</span>
-              <ExternalLink className="w-3 h-3 shrink-0" />
-            </a>
-          </nav>
+          {/* Tampilan Mobile & Tablet (< 1024px): 2 Baris Simetris & Proporsional */}
+          <div className="flex lg:hidden flex-col gap-2.5 py-2.5">
+            {/* Baris 1: Brand di Kiri + Aksi Cepat di Kanan */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-7 h-7 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0">
+                  <Pickaxe className="w-3.5 h-3.5" />
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm font-bold text-white truncate font-display leading-tight">
+                    MF Predictive Ritasi
+                  </span>
+                  <a
+                    href="https://operational-excellence-aria.vercel.app/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] font-semibold italic text-amber-400/90 truncate flex items-center gap-0.5 leading-tight"
+                  >
+                    <span>Autonomia!</span>
+                    <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                  </a>
+                </div>
+              </div>
 
-          {/* Tombol Aksi Desktop */}
-          <div className="hidden md:flex items-center gap-2 shrink-0">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".xlsx,.xls"
-              onChange={handleFileInputChange}
-              className="hidden"
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="px-3 py-1.5 text-xs font-semibold bg-amber-500 text-slate-950 hover:bg-amber-400 rounded-md transition-colors whitespace-nowrap flex items-center gap-1.5 cursor-pointer"
-            >
-              <Upload className="w-3.5 h-3.5" />
-              <span>Upload VHMS</span>
-            </button>
+              {/* Tombol Aksi Mobile yang Rapi & Sejajar */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={handleFileInputChange}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="h-8 px-2.5 text-xs font-bold bg-amber-500 text-slate-950 hover:bg-amber-400 rounded-md transition-colors inline-flex items-center gap-1 cursor-pointer"
+                  title="Upload VHMS"
+                >
+                  <Upload className="w-3 h-3 shrink-0" />
+                  <span>Upload</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportPng}
+                  className="h-8 px-2.5 text-xs font-semibold bg-slate-800 text-slate-100 hover:bg-slate-700 rounded-md transition-colors inline-flex items-center gap-1 border border-slate-700 cursor-pointer"
+                  title="Export PNG"
+                >
+                  <Download className="w-3 h-3 text-amber-400 shrink-0" />
+                  <span>PNG</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetAllData}
+                  className="h-8 px-2 text-xs font-semibold bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 rounded-md border border-rose-500/30 inline-flex items-center cursor-pointer"
+                  title="Reset Data"
+                >
+                  <RotateCcw className="w-3 h-3 shrink-0" />
+                </button>
+              </div>
+            </div>
 
-            <button
-              type="button"
-              onClick={handleExportPng}
-              className="px-3 py-1.5 text-xs font-semibold bg-slate-800 text-slate-100 hover:bg-slate-700 rounded-md transition-colors whitespace-nowrap flex items-center gap-1.5 border border-slate-700 cursor-pointer"
-            >
-              <Download className="w-3.5 h-3.5 text-amber-400" />
-              <span>Export PNG</span>
-            </button>
+            {/* Baris 2: Navigasi Tab (Grid 4 Kolom Simetris) */}
+            <nav className="grid grid-cols-4 gap-1 bg-slate-950/80 p-1 rounded-lg border border-slate-800 text-center">
+              <button
+                type="button"
+                onClick={() => setActiveTab('output')}
+                className={`h-8 text-[11px] sm:text-xs font-semibold rounded-md transition-colors flex items-center justify-center cursor-pointer ${
+                  activeTab === 'output'
+                    ? 'bg-amber-500 text-slate-950 font-bold shadow-xs'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Output MF
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('vhms')}
+                className={`h-8 text-[11px] sm:text-xs font-semibold rounded-md transition-colors flex items-center justify-center gap-1 cursor-pointer ${
+                  activeTab === 'vhms'
+                    ? 'bg-amber-500 text-slate-950 font-bold shadow-xs'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <span>VHMS</span>
+                <span className="text-[10px] opacity-75 font-mono">({vhmsRows.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('settings')}
+                className={`h-8 text-[11px] sm:text-xs font-semibold rounded-md transition-colors flex items-center justify-center cursor-pointer ${
+                  activeTab === 'settings'
+                    ? 'bg-amber-500 text-slate-950 font-bold shadow-xs'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Pengaturan
+              </button>
+              <a
+                href="https://operational-excellence-aria.vercel.app/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="h-8 text-[11px] sm:text-xs font-bold text-amber-400 hover:text-amber-300 flex items-center justify-center gap-0.5 transition-colors"
+                title="Buka Autonomia! di tab baru"
+              >
+                <span>Portal</span>
+                <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+              </a>
+            </nav>
           </div>
         </div>
       </header>
 
-      {/* Sub-bar Pilihan Pit, Shift, Info File & Tombol Reset (Simetris di Mobile & Desktop) */}
+      {/* SUB-BAR KONTROL OPERASIONAL: PIT + TANGGAL + SHIFT + REFRESH TANGGAL (Sejajar & Logis) */}
       <div className="bg-slate-900/60 border-b border-slate-800 px-3 sm:px-6 py-2.5">
-        <div className="max-w-[1140px] mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
-          {/* Pilihan Pit & Shift */}
-          <div className="flex flex-wrap items-center gap-2">
-            <div
-              className="grid gap-1.5 w-full sm:w-auto sm:flex sm:items-center"
-              style={{
-                gridTemplateColumns: `repeat(${Math.min(4, Math.max(1, detectedPits.length))}, minmax(0, 1fr))`,
-              }}
-            >
-              {detectedPits.map((pitName) => (
-                <button
-                  key={pitName}
-                  type="button"
-                  onClick={() => {
-                    setActivePit(pitName);
-                    setActiveTab('output');
-                  }}
-                  className={`px-3 py-1.5 sm:py-1 text-xs font-mono font-bold rounded-md text-center transition-colors cursor-pointer ${
-                    currentPit === pitName && activeTab === 'output'
-                      ? 'bg-amber-500 text-slate-950 shadow-xs'
-                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                  }`}
-                >
-                  {pitName}
-                </button>
-              ))}
+        <div className="max-w-[1140px] mx-auto flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2.5">
+          {/* Kelompok Kontrol Utama: PIT + Tanggal + Shift disusun sejajar secara logis */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+            {/* 1. Pemilihan PIT */}
+            <div className="flex items-center bg-slate-950/80 p-0.5 rounded-lg border border-slate-800">
+              <div
+                className="grid gap-1 w-full sm:w-auto sm:flex sm:items-center"
+                style={{
+                  gridTemplateColumns: `repeat(${Math.min(4, Math.max(1, detectedPits.length))}, minmax(0, 1fr))`,
+                }}
+              >
+                {detectedPits.map((pitName) => (
+                  <button
+                    key={pitName}
+                    type="button"
+                    onClick={() => {
+                      setActivePit(pitName);
+                      setActiveTab('output');
+                    }}
+                    className={`h-8 px-3 text-xs font-mono font-bold rounded-md text-center transition-colors cursor-pointer ${
+                      currentPit === pitName && activeTab === 'output'
+                        ? 'bg-amber-500 text-slate-950 shadow-xs'
+                        : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                    }`}
+                  >
+                    {pitName}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {/* Pilihan Shift 1 (S04) / Shift 2 (S05) */}
-            <div className="flex items-center gap-1 bg-slate-950/80 p-0.5 rounded-md border border-slate-800">
+            {/* 2. Pemilihan Tanggal Sheet Operasional & Tombol Refresh Tanggal */}
+            <div className="flex items-center gap-1.5 bg-slate-950/80 p-0.5 rounded-lg border border-slate-800">
+              <div className="flex items-center gap-1 pl-1.5">
+                <Calendar className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                <span className="text-[11px] text-slate-400 font-medium shrink-0">Sheet:</span>
+              </div>
+              {currentPitDates.length > 0 ? (
+                <select
+                  value={
+                    activeOperationalDate
+                      ? `${activeOperationalDate.year}-${String(activeOperationalDate.monthNum).padStart(2, '0')}-${String(activeOperationalDate.day).padStart(2, '0')}`
+                      : currentPitDates[0]
+                      ? `${currentPitDates[0].parsedDate.year}-${String(currentPitDates[0].parsedDate.monthNum).padStart(2, '0')}-${String(currentPitDates[0].parsedDate.day).padStart(2, '0')}`
+                      : ''
+                  }
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const selected = currentPitDates.find((item) => {
+                      const k = `${item.parsedDate.year}-${String(item.parsedDate.monthNum).padStart(2, '0')}-${String(item.parsedDate.day).padStart(2, '0')}`;
+                      return k === val;
+                    });
+                    if (selected) {
+                      setSelectedDateOverride(selected.parsedDate);
+                      showToast(`Sheet tanggal diganti ke ${selected.parsedDate.display}.`);
+                    }
+                  }}
+                  className="bg-slate-900 text-sky-300 font-mono font-bold text-xs h-8 px-2 rounded-md border border-slate-700/80 focus:outline-none focus:border-sky-500 cursor-pointer max-w-[130px] sm:max-w-none"
+                  title={`Pilih tanggal operasional dari Google Sheets ${currentPit}`}
+                >
+                  {currentPitDates.map((item) => {
+                    const valKey = `${item.parsedDate.year}-${String(item.parsedDate.monthNum).padStart(2, '0')}-${String(item.parsedDate.day).padStart(2, '0')}`;
+                    return (
+                      <option key={`${item.sheetName}_${item.gid}`} value={valKey}>
+                        {item.parsedDate.display}
+                      </option>
+                    );
+                  })}
+                </select>
+              ) : (
+                <span className="text-[11px] text-amber-300 italic px-1.5">Daftar kosong</span>
+              )}
+
+              {/* Tombol Refresh Tanggal */}
               <button
                 type="button"
-                onClick={() => {
-                  setActiveShift('1');
-                  showToast('Shift diubah ke Shift 1 (S04)');
-                }}
-                className={`px-2 py-1 text-[11px] sm:text-xs font-mono font-bold rounded transition-colors cursor-pointer ${
-                  activeShift === '1'
-                    ? 'bg-amber-500 text-slate-950 shadow-xs'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-                title="Pilih Shift 1 (Kode baris S04)"
+                onClick={handleRefreshDates}
+                disabled={isDatesRefreshing}
+                className="h-8 px-2.5 text-[11px] font-semibold bg-sky-950/70 hover:bg-sky-900/90 text-sky-300 border border-sky-700/70 rounded-md transition-colors inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shrink-0"
+                title={`Perbarui daftar sheet tanggal dari Google Sheets ${currentPit}`}
               >
-                Shift 1 (S04)
+                <RefreshCw
+                  className={`w-3 h-3 text-sky-400 shrink-0 ${
+                    isDatesRefreshing ? 'animate-spin' : ''
+                  }`}
+                />
+                <span className="hidden sm:inline">Refresh Tanggal</span>
+                <span className="sm:hidden">Refresh</span>
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveShift('2');
-                  showToast('Shift diubah ke Shift 2 (S05)');
-                }}
-                className={`px-2 py-1 text-[11px] sm:text-xs font-mono font-bold rounded transition-colors cursor-pointer ${
-                  activeShift === '2'
-                    ? 'bg-amber-500 text-slate-950 shadow-xs'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-                title="Pilih Shift 2 (Kode baris S05)"
-              >
-                Shift 2 (S05)
-              </button>
+            </div>
+
+            {/* 3. Pemilihan Shift (Shift 1 = S04, Shift 2 = S05) */}
+            <div className="flex items-center bg-slate-950/80 p-0.5 rounded-lg border border-slate-800">
+              <div className="grid grid-cols-2 gap-1 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveShift('1');
+                    showToast('Shift diubah ke Shift 1 (S04)');
+                  }}
+                  className={`h-8 px-2.5 text-xs font-mono font-bold rounded-md transition-colors cursor-pointer text-center ${
+                    activeShift === '1'
+                      ? 'bg-amber-500 text-slate-950 shadow-xs'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  }`}
+                  title="Pilih Shift 1 (Kode baris S04)"
+                >
+                  Shift 1 (S04)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveShift('2');
+                    showToast('Shift diubah ke Shift 2 (S05)');
+                  }}
+                  className={`h-8 px-2.5 text-xs font-mono font-bold rounded-md transition-colors cursor-pointer text-center ${
+                    activeShift === '2'
+                      ? 'bg-amber-500 text-slate-950 shadow-xs'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  }`}
+                  title="Pilih Shift 2 (Kode baris S05)"
+                >
+                  Shift 2 (S05)
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Info File & Tombol Reset */}
-          <div className="flex items-center justify-between sm:justify-end gap-2 text-[11px] sm:text-xs text-slate-400 font-mono bg-slate-900/80 sm:bg-transparent px-2.5 py-1.5 sm:p-0 rounded-md border border-slate-800/80 sm:border-0">
-            <span className="truncate">
+          {/* Sisi Kanan: Metadata File Aktif */}
+          <div className="flex items-center justify-between lg:justify-end gap-2 text-xs text-slate-400 font-mono py-0.5">
+            <span
+              className="truncate max-w-[280px] sm:max-w-md"
+              title={`${vhmsMetadata.fileName} · ${vhmsMetadata.hoursLabel} · Data per ${vhmsMetadata.latestUpdatedDisplay}`}
+            >
               {vhmsMetadata.fileName} · {vhmsMetadata.hoursLabel} · Data per{' '}
               {vhmsMetadata.latestUpdatedDisplay}
             </span>
-            <button
-              type="button"
-              onClick={handleResetAllData}
-              className="px-2.5 py-1 text-[11px] sm:text-xs font-sans font-semibold bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 rounded-md border border-rose-500/30 inline-flex items-center gap-1 transition-colors cursor-pointer shrink-0"
-            >
-              <RotateCcw className="w-3 h-3" />
-              Reset
-            </button>
           </div>
         </div>
       </div>

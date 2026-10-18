@@ -18,6 +18,7 @@ import {
   matchOperatorName,
   OperatorRecord,
   parseOperationalDateFromSheetName,
+  PIT_SHEET_CONFIGS,
 } from './operatorService';
 import { calculateExportColumnWidths } from './exportPng';
 import { GlobalParams, MasterLoader, VhmsRow } from '../types';
@@ -394,6 +395,31 @@ export function runAllAutomatedTests(): UnitTestCaseResult[] {
     expected: '13 kolom valid',
     actual: `${widthsWithLongName.length} kolom (${widthsWithLongName.reduce((a, b) => a + b, 0)}px total)`,
     passed: allPositive,
+  });
+
+  // 8. Tes Isolasi Spreadsheet & Pemetaan PIT (PIT 11, PIT 12, JUMBANG)
+  const pit11Id = PIT_SHEET_CONFIGS['PIT 11']?.spreadsheetId;
+  const pit12Id = PIT_SHEET_CONFIGS['PIT 12']?.spreadsheetId;
+  const jumbangId = PIT_SHEET_CONFIGS['JUMBANG']?.spreadsheetId;
+
+  const allPitsDistinct = Boolean(
+    pit11Id &&
+    pit12Id &&
+    jumbangId &&
+    pit11Id !== pit12Id &&
+    pit11Id !== jumbangId &&
+    pit12Id !== jumbangId
+  );
+
+  results.push({
+    id: 'pit-spreadsheet-isolation',
+    category: 'Daftar Tanggal Google Sheets',
+    name: 'Isolasi Spreadsheet PIT (PIT 11, PIT 12, JUMBANG terpisah mandiri)',
+    expected: '3 spreadsheet berbeda & valid',
+    actual: allPitsDistinct
+      ? `PIT 11 (${pit11Id.slice(0, 8)}...), PIT 12 (${pit12Id.slice(0, 8)}...), JUMBANG (${jumbangId.slice(0, 8)}...)`
+      : 'Spreadsheet ID bentrok/tidak lengkap',
+    passed: allPitsDistinct,
   });
 
   return results;

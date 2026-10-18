@@ -243,28 +243,80 @@ export const SpreadsheetOutputView: React.FC<SpreadsheetOutputViewProps> = ({
   };
 
   return (
-    <div className="space-y-3 sm:space-y-4 font-sans">
-      {/* Bar Petunjuk & Tombol Aksi (Simetris di Mobile & Desktop) */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 text-xs bg-slate-900/90 text-slate-300 px-3 sm:px-4 py-2.5 rounded-lg border border-slate-800">
-        <div className="flex items-center justify-center sm:justify-start gap-2 text-center sm:text-left">
-          <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
-          <span className="text-[11px] sm:text-xs leading-snug">
-            Ketik nomor DT pada kolom{' '}
-            <strong className="text-emerald-400 font-mono">UNIT (hijau)</strong>{' '}
-            atau tempel daftar DT:
-          </span>
+    <div className="space-y-3 sm:space-y-3.5 font-sans">
+      {/* TOOLBAR KONTROL OPERATOR & AKSI TABEL (SIMETRIS, MODERN & RESPONSIF) */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 bg-slate-900/90 text-slate-300 p-2.5 sm:px-3.5 sm:py-2.5 rounded-xl border border-slate-800 shadow-sm">
+        {/* Sisi Kiri: Status Sumber Data Operator Google Sheets & Sinkronisasi */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Badge Sumber Data & PIT */}
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950/80 border border-slate-800 text-slate-200">
+            <Database className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span className="font-semibold text-xs">
+              {operatorStatus.source === 'google_sheets' ? 'Google Sheets' : 'File Monitoring'}:
+            </span>
+            <span className="font-mono font-bold text-amber-400 text-xs">
+              {pit}
+            </span>
+            <span className="text-slate-600">·</span>
+            <span className="font-mono text-xs text-sky-400">
+              {activeShift === '2' ? 'S05' : 'S04'}
+            </span>
+          </div>
+
+          {/* Status Sinkronisasi Operator */}
+          <div
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border ${
+              isOperatorsLoading
+                ? 'bg-amber-950/40 text-amber-300 border-amber-800/60'
+                : operatorStatus.success
+                ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800/60'
+                : 'bg-rose-950/40 text-rose-300 border-rose-800/60'
+            }`}
+          >
+            {isOperatorsLoading ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 text-amber-400 animate-spin shrink-0" />
+                <span>Memuat operator...</span>
+              </>
+            ) : operatorStatus.success ? (
+              <>
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span className="font-semibold">{operatorRecords.length} Operator Siap</span>
+              </>
+            ) : (
+              <>
+                <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                <span className="truncate max-w-[180px] sm:max-w-[280px]" title={operatorStatus.message}>
+                  {operatorStatus.message || 'Sheet tidak ditemukan'}
+                </span>
+              </>
+            )}
+          </div>
+
+          {/* Tombol Refresh Data Operator */}
+          <button
+            type="button"
+            onClick={onRefreshOperators}
+            disabled={isOperatorsLoading}
+            className="h-8 px-2.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 rounded-lg transition-colors inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            title="Muat ulang data operator dari Google Sheets"
+          >
+            <RefreshCw
+              className={`w-3.5 h-3.5 shrink-0 ${isOperatorsLoading ? 'animate-spin' : ''}`}
+            />
+            <span className="hidden sm:inline">Refresh Data</span>
+            <span className="sm:hidden">Refresh</span>
+          </button>
         </div>
 
-        <div
-          className={`grid gap-2 w-full sm:w-auto sm:flex sm:items-center ${
-            isNarrowViewport ? 'grid-cols-2' : 'grid-cols-1'
-          }`}
-        >
+        {/* Sisi Kanan: Kelompok Tombol Aksi Tabel (Tinggi Seragam h-8, Simetris) */}
+        <div className="flex items-center gap-2 self-stretch sm:self-auto justify-end">
+          {/* Tombol Ubah Mode Mobile jika Viewport Sempit */}
           {isNarrowViewport && (
             <button
               type="button"
               onClick={() => setFitMobileScreen((prev) => !prev)}
-              className="px-2.5 py-1.5 text-[11px] sm:text-xs font-semibold bg-slate-800 text-slate-200 hover:bg-slate-700 border border-slate-700 rounded-md transition-colors inline-flex items-center justify-center gap-1.5 cursor-pointer"
+              className="h-8 px-2.5 sm:px-3 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition-colors inline-flex items-center justify-center gap-1.5 cursor-pointer"
               title="Ubah mode tampilan tabel di layar mobile"
             >
               {fitMobileScreen ? (
@@ -275,154 +327,13 @@ export const SpreadsheetOutputView: React.FC<SpreadsheetOutputViewProps> = ({
               ) : (
                 <>
                   <Minimize2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span>Pas Layar Simetris</span>
+                  <span>Pas Layar</span>
                 </>
               )}
             </button>
           )}
 
-          <button
-            type="button"
-            onClick={() => setShowBulkModal(true)}
-            className="px-3 py-1.5 text-[11px] sm:text-xs font-semibold bg-amber-500 text-slate-950 hover:bg-amber-400 rounded-md transition-colors inline-flex items-center justify-center gap-1.5 cursor-pointer"
-          >
-            <ClipboardPaste className="w-3.5 h-3.5 shrink-0" />
-            <span>Tempel Daftar DT</span>
-          </button>
-        </div>
-      </div>
-
-      {/* BAR STATUS & KONTROL OPERATOR GOOGLE SHEETS */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2.5 text-xs bg-slate-900/90 text-slate-300 px-3 sm:px-4 py-2.5 rounded-lg border border-slate-800">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-slate-800/90 border border-slate-700/80 text-slate-200">
-            <Database className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-            <span className="font-semibold text-[11px] sm:text-xs">
-              {operatorStatus.source === 'google_sheets' ? 'Google Sheets' : 'File Monitoring'}:
-            </span>
-            <span className="font-mono font-bold text-amber-400 text-[11px] sm:text-xs">
-              {pit}
-            </span>
-          </div>
-
-          {/* Pemilihan Tanggal Sheet Operasional & Tombol Refresh Tanggal (Ketentuan 1, 2, 3, 4, 5, 6, 7, 8, 9, 10) */}
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-slate-800/90 border border-slate-700/80 text-slate-200">
-            <Calendar className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-            <span className="text-[11px] sm:text-xs text-slate-400 font-medium">Sheet:</span>
-            {availableDates.length > 0 ? (
-              <select
-                value={
-                  operationalDate
-                    ? `${operationalDate.year}-${String(operationalDate.monthNum).padStart(2, '0')}-${String(operationalDate.day).padStart(2, '0')}`
-                    : availableDates[0]
-                    ? `${availableDates[0].parsedDate.year}-${String(availableDates[0].parsedDate.monthNum).padStart(2, '0')}-${String(availableDates[0].parsedDate.day).padStart(2, '0')}`
-                    : ''
-                }
-                onChange={(e) => {
-                  const val = e.target.value;
-                  const selected = availableDates.find((item) => {
-                    const k = `${item.parsedDate.year}-${String(item.parsedDate.monthNum).padStart(2, '0')}-${String(item.parsedDate.day).padStart(2, '0')}`;
-                    return k === val;
-                  });
-                  if (selected && onDateChange) {
-                    onDateChange(selected.parsedDate);
-                  }
-                }}
-                className="bg-slate-900 text-sky-300 font-mono font-bold text-[11px] sm:text-xs rounded px-1.5 py-0.5 border border-slate-700 focus:outline-none focus:border-sky-500 cursor-pointer max-w-[130px] sm:max-w-none"
-                title={`Pilih tanggal operasional dari Google Sheets ${pit}`}
-              >
-                {availableDates.map((item) => {
-                  const valKey = `${item.parsedDate.year}-${String(item.parsedDate.monthNum).padStart(2, '0')}-${String(item.parsedDate.day).padStart(2, '0')}`;
-                  return (
-                    <option key={`${item.sheetName}_${item.gid}`} value={valKey}>
-                      {item.parsedDate.display}
-                    </option>
-                  );
-                })}
-              </select>
-            ) : (
-              <span className="text-[11px] text-amber-300 italic">Daftar kosong</span>
-            )}
-
-            {/* Tombol Refresh Tanggal (Ketentuan 3: Di dekat pilihan tanggal) */}
-            <button
-              type="button"
-              onClick={onRefreshDates}
-              disabled={isDatesRefreshing}
-              className="px-2 py-0.5 text-[11px] font-semibold bg-sky-950/70 hover:bg-sky-900/90 text-sky-300 border border-sky-700/70 rounded transition-colors inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
-              title={`Perbarui daftar sheet tanggal dari Google Sheets ${pit}`}
-            >
-              <RefreshCw
-                className={`w-3 h-3 text-sky-400 shrink-0 ${
-                  isDatesRefreshing ? 'animate-spin' : ''
-                }`}
-              />
-              <span className="hidden sm:inline">Refresh Tanggal</span>
-              <span className="sm:hidden">Refresh</span>
-            </button>
-          </div>
-
-          {/* Pemilihan Shift Operasional (Shift 1 = S04, Shift 2 = S05) */}
-          <div className="flex items-center gap-1 bg-slate-950/80 p-0.5 rounded border border-slate-700/80">
-            <button
-              type="button"
-              onClick={() => onShiftChange && onShiftChange('1')}
-              className={`px-2 py-0.5 text-[11px] font-mono font-bold rounded transition-colors cursor-pointer ${
-                activeShift === '1'
-                  ? 'bg-amber-500 text-slate-950 shadow-xs'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Shift 1: Mengambil nama operator dari baris berkode S04"
-            >
-              Shift 1 (S04)
-            </button>
-            <button
-              type="button"
-              onClick={() => onShiftChange && onShiftChange('2')}
-              className={`px-2 py-0.5 text-[11px] font-mono font-bold rounded transition-colors cursor-pointer ${
-                activeShift === '2'
-                  ? 'bg-amber-500 text-slate-950 shadow-xs'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Shift 2: Mengambil nama operator dari baris berkode S05"
-            >
-              Shift 2 (S05)
-            </button>
-          </div>
-
-          {/* Status Sinkronisasi */}
-          <div
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium border ${
-              isOperatorsLoading
-                ? 'bg-amber-950/40 text-amber-300 border-amber-800/60'
-                : operatorStatus.success
-                ? 'bg-emerald-950/40 text-emerald-300 border-emerald-800/60'
-                : 'bg-rose-950/40 text-rose-300 border-rose-800/60'
-            }`}
-          >
-            {isOperatorsLoading ? (
-              <>
-                <RefreshCw className="w-3 h-3 text-amber-400 animate-spin shrink-0" />
-                <span>Memuat Google Sheets...</span>
-              </>
-            ) : operatorStatus.success ? (
-              <>
-                <CheckCircle2 className="w-3 h-3 text-emerald-400 shrink-0" />
-                <span>{operatorRecords.length} Operator Siap</span>
-              </>
-            ) : (
-              <>
-                <AlertCircle className="w-3 h-3 text-rose-400 shrink-0" />
-                <span className="truncate max-w-[200px] sm:max-w-[320px]" title={operatorStatus.message}>
-                  {operatorStatus.message || 'Sheet tidak ditemukan'}
-                </span>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Tombol Muat Ulang & Upload Monitoring */}
-        <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+          {/* Upload Monitoring Lokal */}
           <input
             ref={localMonitoringInputRef}
             type="file"
@@ -439,24 +350,23 @@ export const SpreadsheetOutputView: React.FC<SpreadsheetOutputViewProps> = ({
           <button
             type="button"
             onClick={() => localMonitoringInputRef.current?.click()}
-            className="px-2.5 py-1 text-[11px] sm:text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-md transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+            className="h-8 px-2.5 sm:px-3 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition-colors inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
             title="Upload file monitoring operator (.xlsx / .xls / .csv) lokal"
           >
-            <Upload className="w-3 h-3 text-slate-300 shrink-0" />
-            <span>Upload Monitoring</span>
+            <Upload className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+            <span className="hidden sm:inline">Upload Monitoring</span>
+            <span className="sm:hidden">Monitoring</span>
           </button>
 
+          {/* Tempel Daftar DT (Aksi Utama Tabel) */}
           <button
             type="button"
-            onClick={onRefreshOperators}
-            disabled={isOperatorsLoading}
-            className="px-2.5 py-1 text-[11px] sm:text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 rounded-md transition-colors inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-            title="Muat ulang data operator dari Google Sheets"
+            onClick={() => setShowBulkModal(true)}
+            className="h-8 px-3.5 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg transition-colors inline-flex items-center justify-center gap-1.5 shadow-sm cursor-pointer whitespace-nowrap"
+            title="Tempel daftar nomor DT secara massal per loader"
           >
-            <RefreshCw
-              className={`w-3 h-3 shrink-0 ${isOperatorsLoading ? 'animate-spin' : ''}`}
-            />
-            <span>Refresh</span>
+            <ClipboardPaste className="w-3.5 h-3.5 shrink-0" />
+            <span>Tempel DT</span>
           </button>
         </div>
       </div>
@@ -1462,44 +1372,49 @@ export const SpreadsheetOutputView: React.FC<SpreadsheetOutputViewProps> = ({
 
       {/* Modal Tempel Banyak DT */}
       {showBulkModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-xl max-w-lg w-full p-4 sm:p-5 space-y-4 text-slate-100 shadow-xl">
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-slate-900 border border-slate-700/80 rounded-2xl max-w-lg w-full p-4 sm:p-5 space-y-4 text-slate-100 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="font-semibold text-sm">
-                Tempel Daftar DT per Loader ({pit})
-              </h3>
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center">
+                  <ClipboardPaste className="w-3.5 h-3.5" />
+                </div>
+                <h3 className="font-bold text-sm text-white">
+                  Tempel Daftar DT per Loader ({pit})
+                </h3>
+              </div>
               <button
                 type="button"
                 onClick={() => setShowBulkModal(false)}
-                className="text-slate-400 hover:text-white"
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-xs text-slate-400">
-              Tempel satu baris per loader, contoh:
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Tempel satu baris per loader dengan format <code className="text-amber-400 font-mono">Loader: nomor DT</code>, contoh:
             </p>
             <textarea
               rows={6}
               value={bulkText}
               onChange={(e) => setBulkText(e.target.value)}
               placeholder={`EX 1233: 4514 4507 4376 5547\nEX 1217: 4593 3227 3832 5572\nEX 1104: 4341 4471 4189 4473\nEX 1191: 4553 4508 4457 5460`}
-              className="w-full p-3 text-xs font-mono bg-slate-950 border border-slate-700 rounded-lg text-slate-100 focus:outline-none focus:border-amber-500"
+              className="w-full p-3 text-xs font-mono bg-slate-950 border border-slate-700 rounded-xl text-slate-100 focus:outline-none focus:border-amber-500 transition-colors"
             />
-            <div className="grid grid-cols-2 sm:flex sm:justify-end gap-2">
+            <div className="grid grid-cols-2 sm:flex sm:justify-end gap-2.5 pt-1">
               <button
                 type="button"
                 onClick={() => setShowBulkModal(false)}
-                className="px-3 py-2 sm:py-1.5 text-xs font-medium text-slate-300 bg-slate-800 sm:bg-transparent hover:bg-slate-700 rounded-md text-center"
+                className="h-9 px-4 text-xs font-semibold text-slate-300 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors text-center cursor-pointer"
               >
                 Batal
               </button>
               <button
                 type="button"
                 onClick={handleApplyBulkPaste}
-                className="px-4 py-2 sm:py-1.5 text-xs font-semibold bg-amber-500 text-slate-950 hover:bg-amber-400 rounded-md text-center"
+                className="h-9 px-5 text-xs font-bold bg-amber-500 text-slate-950 hover:bg-amber-400 rounded-lg transition-colors text-center cursor-pointer shadow-sm"
               >
-                Terapkan
+                Terapkan Daftar DT
               </button>
             </div>
           </div>
