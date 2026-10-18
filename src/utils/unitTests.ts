@@ -13,12 +13,26 @@ import {
   parseVhmsHoursText,
   parseVhmsNumericCell,
 } from './excelParser';
+import {
+  getShiftCode,
+  matchOperatorName,
+  OperatorRecord,
+  parseOperationalDateFromSheetName,
+} from './operatorService';
+import { calculateExportColumnWidths } from './exportPng';
 import { GlobalParams, MasterLoader, VhmsRow } from '../types';
 import { SAMPLE_VHMS_ROWS } from '../data/sampleData';
 
 export interface UnitTestCaseResult {
   id: string;
-  category: 'Lookup Konversi' | 'Sanitasi Tabel' | 'Rumus Perhitungan' | 'Parsing VHMS';
+  category:
+    | 'Lookup Konversi'
+    | 'Sanitasi Tabel'
+    | 'Rumus Perhitungan'
+    | 'Parsing VHMS'
+    | 'Pencocokan Shift & Operator'
+    | 'Daftar Tanggal Google Sheets'
+    | 'Export PNG & Layout Tabel';
   name: string;
   expected: string;
   actual: string;
@@ -239,6 +253,147 @@ export function runAllAutomatedTests(): UnitTestCaseResult[] {
       parsedNum2 === 0.85 &&
       parsedDate === '01 Okt 2026' &&
       parsedHours.hoursLabel === 'Data jam 06-08',
+  });
+
+  // 5. Tes Pencocokan Shift & Operator (Shift 1 = S04, Shift 2 = S05)
+  const shift1Code = getShiftCode('1');
+  const shift2Code = getShiftCode('2');
+  results.push({
+    id: 'shift-code-mapping',
+    category: 'Pencocokan Shift & Operator',
+    name: 'Pemetaan Kode Shift (Shift 1 -> S04, Shift 2 -> S05)',
+    expected: 'S04 | S05',
+    actual: `${shift1Code} | ${shift2Code}`,
+    passed: shift1Code === 'S04' && shift2Code === 'S05',
+  });
+
+  // Sample records dengan pemisahan shift S04 dan S05
+  const sampleOpRecords: OperatorRecord[] = [
+    { unit: '4514', name: 'ANSARI', loader: 'EX1233', shift: 'S04', sourceRow: 2 },
+    { unit: '4376', name: 'AHMAD SALIM', loader: 'EX1233', shift: 'S04', sourceRow: 3 },
+    { unit: '4514', name: 'ANGGA SETYAWAN', loader: 'EX1233', shift: 'S05', sourceRow: 76 },
+    { unit: '4507', name: 'ARIFIN', loader: 'EX1233', shift: 'S05', sourceRow: 77 },
+  ];
+
+  // 5a. Unit 4514 pada Shift 1 (S04) -> ANSARI
+  const matchS1 = matchOperatorName('4514', 'EX 1233', sampleOpRecords, '1');
+  results.push({
+    id: 'operator-match-shift-1',
+    category: 'Pencocokan Shift & Operator',
+    name: 'Pencocokan Unit 4514 pada Shift 1 (S04)',
+    expected: 'ANSARI (FOUND)',
+    actual: `${matchS1.name} (${matchS1.status})`,
+    passed: matchS1.status === 'FOUND' && matchS1.name === 'ANSARI',
+  });
+
+  // 5b. Unit 4514 pada Shift 2 (S05) -> ANGGA SETYAWAN
+  const matchS2 = matchOperatorName('4514', 'EX 1233', sampleOpRecords, '2');
+  results.push({
+    id: 'operator-match-shift-2',
+    category: 'Pencocokan Shift & Operator',
+    name: 'Pencocokan Unit 4514 pada Shift 2 (S05)',
+    expected: 'ANGGA SETYAWAN (FOUND)',
+    actual: `${matchS2.name} (${matchS2.status})`,
+    passed: matchS2.status === 'FOUND' && matchS2.name === 'ANGGA SETYAWAN',
+  });
+
+  // 5c. Unit 4376 ada di Shift 1 tapi TIDAK ada di Shift 2 -> Tampilkan "—" (Ketentuan 6 & 7)
+  const matchS2Missing = matchOperatorName('4376', 'EX 1233', sampleOpRecords, '2');
+  results.push({
+    id: 'operator-isolation-missing',
+    category: 'Pencocokan Shift & Operator',
+    name: 'Isolasi Shift: Unit 4376 pada Shift 2 tidak mengambil dari Shift 1',
+    expected: '— (NOT_FOUND)',
+    actual: `${matchS2Missing.name} (${matchS2Missing.status})`,
+    passed: matchS2Missing.status === 'NOT_FOUND' && matchS2Missing.name === '—',
+  });
+
+  // 6. Tes Identifikasi Sheet Tanggal & Pengurutan Kronologis
+  const sampleSheetNames = [
+    'Tabel Problem, Delay, Idle',
+    'DROPDOWN LIST',
+    'Template',
+    'Rekap Bulanan',
+    '01 OKT 2026',
+    '02 OKTo 2026',
+    '10 OKT 2026',
+    '9 OKT 2026',
+    '18 OKT 2026',
+  ];
+
+  const parsedValidDates = sampleSheetNames
+    .map((name) => ({ name, parsed: parseOperationalDateFromSheetName(name) }))
+    .filter((item): item is { name: string; parsed: NonNullable<typeof item.parsed> } => item.parsed !== null);
+
+  const validNames = parsedValidDates.map((item) => item.name).join(', ');
+  results.push({
+    id: 'sheet-date-filter',
+    category: 'Daftar Tanggal Google Sheets',
+    name: 'Filter Sheet Operasional (abaikan DROPDOWN LIST, Template, Rekap)',
+    expected: '01 OKT 2026, 02 OKTo 2026, 10 OKT 2026, 9 OKT 2026, 18 OKT 2026',
+    actual: validNames,
+    passed: validNames === '01 OKT 2026, 02 OKTo 2026, 10 OKT 2026, 9 OKT 2026, 18 OKT 2026',
+  });
+
+  // 6b. Urutkan secara kronologis (9 OKT sebelum 10 OKT, 10 OKT sebelum 18 OKT)
+  const sortedDates = [...parsedValidDates].sort((a, b) => {
+    const vA = a.parsed.year * 10000 + a.parsed.monthNum * 100 + a.parsed.day;
+    const vB = b.parsed.year * 10000 + b.parsed.monthNum * 100 + b.parsed.day;
+    return vA - vB;
+  });
+  const chronologicalDisplay = sortedDates.map((d) => d.parsed.display).join(' -> ');
+  const expectedOrder = '01 Okt 2026 -> 02 Okt 2026 -> 09 Okt 2026 -> 10 Okt 2026 -> 18 Okt 2026';
+  results.push({
+    id: 'sheet-chronological-sort',
+    category: 'Daftar Tanggal Google Sheets',
+    name: 'Urutan Kronologis Sheet Tanggal (bukan alfabet)',
+    expected: expectedOrder,
+    actual: chronologicalDisplay,
+    passed: chronologicalDisplay === expectedOrder,
+  });
+
+  // 7. Tes Layout Kolom Export PNG & Penanganan Nama Operator Panjang
+  const widthsDefault = calculateExportColumnWidths([], '1');
+  const opColDefault = widthsDefault[3];
+  results.push({
+    id: 'export-png-col-width-default',
+    category: 'Export PNG & Layout Tabel',
+    name: 'Lebar Kolom Nama Operator Default (Col 3 >= 165px)',
+    expected: '>= 165px',
+    actual: `${opColDefault}px`,
+    passed: opColDefault >= 165,
+  });
+
+  // Uji dengan nama operator panjang: "MUHAMMAD SYAHRUL RAMADHAN"
+  const sampleLongOpRecords: OperatorRecord[] = [
+    {
+      unit: '4514',
+      name: 'MUHAMMAD SYAHRUL RAMADHAN',
+      loader: 'EX1233',
+      shift: 'S04',
+      sourceRow: 5,
+    },
+  ];
+  const widthsWithLongName = calculateExportColumnWidths(sampleLongOpRecords, '1');
+  const opColLong = widthsWithLongName[3];
+  results.push({
+    id: 'export-png-col-width-long-name',
+    category: 'Export PNG & Layout Tabel',
+    name: 'Penyesuaian Lebar Kolom Operator untuk Nama Panjang (Col 3 >= 165px)',
+    expected: '>= 165px',
+    actual: `${opColLong}px`,
+    passed: opColLong >= 165 && opColLong <= 220,
+  });
+
+  // Uji total 13 kolom: semua lebar bernilai positif dan konsisten
+  const allPositive = widthsWithLongName.length === 13 && widthsWithLongName.every((w) => w > 0);
+  results.push({
+    id: 'export-png-13-cols-valid',
+    category: 'Export PNG & Layout Tabel',
+    name: 'Validasi 13 Kolom Simetris (semua lebar kolom > 0)',
+    expected: '13 kolom valid',
+    actual: `${widthsWithLongName.length} kolom (${widthsWithLongName.reduce((a, b) => a + b, 0)}px total)`,
+    passed: allPositive,
   });
 
   return results;

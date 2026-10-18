@@ -20,22 +20,22 @@ import { LoaderCalculationResult } from '../types';
  * - Col 12 (54px): [T1] (bagian MF) | [T2] (bagian Remarks)               | [T3] LST
  */
 export const SYMMETRIC_COL_WIDTHS = [
-  80,  // Col 0
-  92,  // Col 1
-  102, // Col 2
-  102, // Col 3
-  66,  // Col 4
-  66,  // Col 5
-  78,  // Col 6
-  56,  // Col 7
-  56,  // Col 8
-  74,  // Col 9
-  66,  // Col 10
-  54,  // Col 11
-  54,  // Col 12
+  78,  // Col 0: Lokasi Pit | Lokasi Pit | PC (bagian 1)
+  92,  // Col 1: Loader     | Loader     | PC (bagian 2)
+  86,  // Col 2: EGI        | Jumlah HD  | UNIT
+  165, // Col 3: Jarak VHMS | Serving Tm | Nama Operator (lebar optimal untuk nama panjang)
+  70,  // Col 4: nHD Plan   | Cycle Time | Jarak (km)
+  70,  // Col 5: nHD Actual | MF Aktual  | CT Plan
+  94,  // Col 6: ST Plan    | Pred Rit   | CT Actual (lebar optimal untuk Predictive Ritasi)
+  68,  // Col 7: ST Actual  | Gantung/Antri (colSpan 2) | Loading Time (colSpan 2)
+  68,  // Col 8: CT Plan    | (bagian Gantung/Antri)    | (bagian Loading Time)
+  78,  // Col 9: CT Actual  | Durasi     | Speed
+  72,  // Col 10: MF (colSpan 3: Col 10+11+12) | Priority | Plan Speed
+  60,  // Col 11: (bagian MF) | Remarks (colSpan 2: Col 11+12) | EST
+  60,  // Col 12: (bagian MF) | (bagian Remarks)               | LST
 ] as const;
 
-export const TOTAL_TABLE_WIDTH = SYMMETRIC_COL_WIDTHS.reduce((a, b) => a + b, 0); // 946px
+export const TOTAL_TABLE_WIDTH = SYMMETRIC_COL_WIDTHS.reduce((a, b) => a + b, 0); // 1061px
 
 export interface CellColorStyle {
   bg: string;

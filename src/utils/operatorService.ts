@@ -60,6 +60,21 @@ export interface PitSheetConfig {
   dateGidMap: Record<string, string>;
 }
 
+export interface AvailableDateSheet {
+  sheetName: string;
+  gid: string;
+  parsedDate: ParsedOperationalDate;
+}
+
+export interface FetchAvailableDatesResult {
+  success: boolean;
+  pit: string;
+  dates: AvailableDateSheet[];
+  totalSheetsFound?: number;
+  message?: string;
+  error?: string;
+}
+
 // Konfigurasi Google Sheets Resmi untuk Masing-Masing PIT
 export const PIT_SHEET_CONFIGS: Record<string, PitSheetConfig> = {
   'PIT 11': {
@@ -271,6 +286,217 @@ export function parseOperationalDate(
 }
 
 /**
+ * Identifikasi nama sheet yang benar-benar merepresentasikan tanggal operasional.
+ * Mengabaikan sheet seperti "Sheet1", "Template", "Rekap", "Dropdown", "Delay", dll.
+ */
+export function parseOperationalDateFromSheetName(
+  sheetName: string
+): ParsedOperationalDate | null {
+  const clean = sheetName.trim();
+  const lower = clean.toLowerCase();
+
+  const ignoredPatterns = [
+    'sheet', 'template', 'rekap', 'dropdown', 'delay', 'problem',
+    'idle', 'total', 'setting', 'config', 'master', 'dash', 'summary'
+  ];
+  if (ignoredPatterns.some((p) => lower.includes(p))) {
+    return null;
+  }
+
+  // Pola teks: 01 OKT 2026, 1 OKT 2026, 02 OKTo 2026, 18 Oct 2026
+  const m1 = clean.match(/(\d{1,2})[\s_.-]*([a-zA-Z]{3,10})[\s_.-]*(\d{2,4})?/);
+  if (m1) {
+    const day = parseInt(m1[1], 10);
+    const mStr = m1[2].toLowerCase();
+    let monthNum: number | null = null;
+    for (const [k, v] of Object.entries(MONTH_ALIAS_MAP)) {
+      if (mStr.startsWith(k)) {
+        monthNum = v;
+        break;
+      }
+    }
+    let year = m1[3] ? parseInt(m1[3], 10) : 2026;
+    if (year < 100) year += 2000;
+    if (day >= 1 && day <= 31 && monthNum) {
+      const dd = String(day).padStart(2, '0');
+      const mmId = MONTH_NAMES_ID[monthNum - 1];
+      return {
+        day,
+        monthNum,
+        year,
+        display: `${dd} ${mmId} ${year}`,
+        paddedKey: `${dd} ${mmId.toUpperCase()} ${year}`,
+        singleKey: `${day} ${mmId.toUpperCase()} ${year}`,
+        rawSource: clean,
+      };
+    }
+  }
+
+  // Pola angka DD-MM-YYYY atau YYYY-MM-DD
+  const m2 = clean.match(/\b(\d{1,2})[-/.](\d{1,2})[-/.](20\d{2})\b/);
+  if (m2) {
+    const day = parseInt(m2[1], 10);
+    const monthNum = parseInt(m2[2], 10);
+    const year = parseInt(m2[3], 10);
+    if (monthNum >= 1 && monthNum <= 12 && day >= 1 && day <= 31) {
+      const dd = String(day).padStart(2, '0');
+      const mmId = MONTH_NAMES_ID[monthNum - 1];
+      return {
+        day,
+        monthNum,
+        year,
+        display: `${dd} ${mmId} ${year}`,
+        paddedKey: `${dd} ${mmId.toUpperCase()} ${year}`,
+        singleKey: `${day} ${mmId.toUpperCase()} ${year}`,
+        rawSource: clean,
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Daftar default sheet tanggal operasional yang sudah terverifikasi untuk setiap PIT (01 - 17 Okt 2026).
+ * Sebelum tombol Refresh Tanggal ditekan, daftar ini dipertahankan secara stabil.
+ */
+export const DEFAULT_PIT_DATES: Record<string, AvailableDateSheet[]> = {
+  'PIT 11': Array.from({ length: 17 }, (_, i) => {
+    const d = i + 1;
+    const dd = String(d).padStart(2, '0');
+    const padded = `${dd} OKT 2026`;
+    return {
+      sheetName: padded,
+      gid: PIT_SHEET_CONFIGS['PIT 11']?.dateGidMap[padded] || '',
+      parsedDate: {
+        day: d,
+        monthNum: 10,
+        year: 2026,
+        display: `${dd} Okt 2026`,
+        paddedKey: padded,
+        singleKey: `${d} OKT 2026`,
+        rawSource: padded,
+      },
+    };
+  }),
+  'PIT 12': Array.from({ length: 17 }, (_, i) => {
+    const d = i + 1;
+    const dd = String(d).padStart(2, '0');
+    const single = `${d} OKT 2026`;
+    const padded = `${dd} OKT 2026`;
+    return {
+      sheetName: single,
+      gid: PIT_SHEET_CONFIGS['PIT 12']?.dateGidMap[single] || '',
+      parsedDate: {
+        day: d,
+        monthNum: 10,
+        year: 2026,
+        display: `${dd} Okt 2026`,
+        paddedKey: padded,
+        singleKey: single,
+        rawSource: single,
+      },
+    };
+  }),
+  'JUMBANG': Array.from({ length: 17 }, (_, i) => {
+    const d = i + 1;
+    const dd = String(d).padStart(2, '0');
+    const padded = `${dd} OKT 2026`;
+    const single = `${d} OKT 2026`;
+    return {
+      sheetName: padded,
+      gid: PIT_SHEET_CONFIGS['JUMBANG']?.dateGidMap[padded] || '',
+      parsedDate: {
+        day: d,
+        monthNum: 10,
+        year: 2026,
+        display: `${dd} Okt 2026`,
+        paddedKey: padded,
+        singleKey: single,
+        rawSource: padded,
+      },
+    };
+  }),
+};
+
+/**
+ * Daftarkan pemetaan GID dinamis untuk tanggal yang baru ditemukan pada PIT tertentu
+ */
+export function registerDiscoveredDateGid(pit: string, dateKey: string, gid: string): void {
+  const normPit = pit.trim().toUpperCase();
+  const conf = PIT_SHEET_CONFIGS[normPit];
+  if (conf && dateKey && gid) {
+    conf.dateGidMap[dateKey.toUpperCase()] = gid;
+  }
+}
+
+/**
+ * Mengambil daftar sheet tanggal secara dinamis dan aktual dari Google Sheets untuk PIT tertentu.
+ * Hanya dipanggil ketika pengguna menekan tombol "Refresh Tanggal".
+ */
+export async function fetchAvailableDatesForPit(
+  pit: string
+): Promise<FetchAvailableDatesResult> {
+  const normPit = pit.trim().toUpperCase();
+  const config = PIT_SHEET_CONFIGS[normPit];
+
+  if (!config) {
+    return {
+      success: false,
+      pit,
+      dates: [],
+      error: `Konfigurasi Google Sheets untuk ${pit} tidak ditemukan.`,
+    };
+  }
+
+  try {
+    const res = await fetch(`/api/sheets-dates?pit=${encodeURIComponent(normPit)}`);
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => null);
+      throw new Error(errJson?.error || `HTTP ${res.status}: ${res.statusText}`);
+    }
+
+    const data = await res.json();
+    if (!data.success || !Array.isArray(data.dates)) {
+      throw new Error(data.error || 'Respon daftar tanggal tidak valid dari server.');
+    }
+
+    const list: AvailableDateSheet[] = data.dates.map((item: any) => ({
+      sheetName: item.sheetName,
+      gid: item.gid,
+      parsedDate: item.parsedDate,
+    }));
+
+    // Daftarkan seluruh GID baru ke dateGidMap in-memory PIT aktif
+    list.forEach((item) => {
+      registerDiscoveredDateGid(normPit, item.sheetName, item.gid);
+      if (item.parsedDate) {
+        registerDiscoveredDateGid(normPit, item.parsedDate.paddedKey, item.gid);
+        registerDiscoveredDateGid(normPit, item.parsedDate.singleKey, item.gid);
+        registerDiscoveredDateGid(normPit, item.parsedDate.display, item.gid);
+      }
+    });
+
+    return {
+      success: true,
+      pit: normPit,
+      dates: list,
+      totalSheetsFound: list.length,
+      message: `Berhasil menemukan ${list.length} sheet tanggal operasional untuk ${normPit}.`,
+    };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return {
+      success: false,
+      pit: normPit,
+      dates: [],
+      error: msg,
+      message: `Gagal memperbarui daftar sheet tanggal untuk ${normPit}: ${msg}`,
+    };
+  }
+}
+
+/**
  * Parsing teks CSV Google Sheets secara robust dengan pemecahan sel dan tanda kutip
  */
 export function parseGoogleSheetsCsv(csvText: string): OperatorRecord[] {
@@ -421,7 +647,8 @@ export interface FetchOperatorResult {
 export async function fetchOperatorsFromGoogleSheets(
   pit: string,
   parsedDate: ParsedOperationalDate | null,
-  forceRefresh: boolean = false
+  forceRefresh: boolean = false,
+  knownGid?: string
 ): Promise<FetchOperatorResult> {
   const normalizedPit = pit.trim().toUpperCase();
   const config = PIT_SHEET_CONFIGS[normalizedPit];
@@ -452,10 +679,12 @@ export async function fetchOperatorsFromGoogleSheets(
     };
   }
 
-  // Cari GID berdasarkan kunci tanggal terformat (contoh: "01 OKT 2026" atau "1 OKT 2026")
+  // Cari GID berdasarkan knownGid atau kunci tanggal terformat (contoh: "01 OKT 2026" atau "1 OKT 2026")
   let targetGid =
+    knownGid ||
     config.dateGidMap[parsedDate.paddedKey] ||
     config.dateGidMap[parsedDate.singleKey] ||
+    config.dateGidMap[parsedDate.display.toUpperCase()] ||
     '';
 
   const cacheKey = `${normalizedPit}_${parsedDate.paddedKey}_${targetGid}`;
@@ -481,7 +710,7 @@ export async function fetchOperatorsFromGoogleSheets(
       records: [],
       source: 'google_sheets',
       sheetNameUsed: parsedDate.paddedKey,
-      message: `Sheet untuk tanggal ${parsedDate.display} tidak ditemukan pada Google Sheets ${pit}.`,
+      message: `Sheet untuk tanggal ${parsedDate.display} belum terdaftar pada ${pit}. Silakan tekan tombol "Refresh Tanggal" untuk mendeteksi sheet baru dari Google Sheets.`,
       error: 'SHEET_DATE_NOT_FOUND',
     };
   }
